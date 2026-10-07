@@ -1,16 +1,23 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ProductCard } from "@/components/product-card"
 import { useAuth } from "@/components/auth-provider"
 import { supabase } from "@/lib/supabase"
-import { tours } from "@/lib/tours"
+// Remove the static import: import { tours } from "@/lib/tours"
+
+// Import the action we created earlier
+import { getPackages } from "@/lib/actions/packages"
 
 export function ProductsSection() {
   const router = useRouter()
   const { user } = useAuth()
+
+  // --- NEW: Live Packages State ---
+  const [livePackages, setLivePackages] = useState<any[]>([])
+  const [loadingPackages, setLoadingPackages] = useState(true)
 
   // Auth Modals
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -35,6 +42,21 @@ export function ProductsSection() {
   // Add-ons State
   const [includeEtdf, setIncludeEtdf] = useState(false)
   const [includeLagoon, setIncludeLagoon] = useState(false)
+
+  // --- NEW: Fetch Packages on Load ---
+  useEffect(() => {
+    const fetchLiveTours = async () => {
+      try {
+        const data = await getPackages()
+        setLivePackages(data || [])
+      } catch (err) {
+        console.error("Failed to load tour packages:", err)
+      } finally {
+        setLoadingPackages(false)
+      }
+    }
+    fetchLiveTours()
+  }, [])
 
   // --- DYNAMIC PRICE CALCULATION ---
   const currentPax = typeof pax === "number" && pax > 0 ? pax : 1
@@ -111,20 +133,35 @@ export function ProductsSection() {
           Discover our handpicked selection of exclusive tour packages designed to create
           unforgettable memories
         </p>
-        
       </div>
 
-      <div className="mx-auto mt-10 grid max-w-5xl gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {tours.map((tour) => (
-          <div 
-            key={tour.id} 
-            onClick={() => handleTourClick(tour)} 
-            className="cursor-pointer transition-transform hover:scale-[1.02]"
-          >
-            <ProductCard tour={tour} />
-          </div>
-        ))}
-      </div>
+      {loadingPackages ? (
+        <div className="text-center mt-12 py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#dfa241] mx-auto"></div>
+          <p className="mt-4 text-slate-500">Loading available packages...</p>
+        </div>
+      ) : (
+        <div className="mx-auto mt-10 grid max-w-5xl gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {livePackages.map((tour) => (
+            <div 
+              key={tour.id} 
+              onClick={() => handleTourClick(tour)} 
+              className="cursor-pointer transition-transform hover:scale-[1.02]"
+            >
+              {/* Ensure ProductCard can read your Supabase column names */}
+              <ProductCard tour={{
+                id: tour.id,
+                title: tour.title,
+                description: tour.description,              
+                price: tour.price,
+                originalPrice: tour.original_price,
+                destinations: tour.destinations,
+                image: tour.image              
+              }} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 1. AUTHENTICATION MODAL */}
       {showAuthModal && (
@@ -199,17 +236,17 @@ export function ProductsSection() {
               
               <div className="p-6 text-sm text-slate-600 space-y-5">
                 <p>
-                  Experience the Island Hopping in El Nido with the most Famous Islands and Adventure. (08:30am to 04:30pm), you can do Island Tours, Snorkeling, Swimming, Sightseeing in the Beaches, and kayaking.
+                  {selectedTour.description || "Experience Island Hopping in El Nido with the most Famous Islands and Adventure. (08:30am to 04:30pm), you can do Island Tours, Snorkeling, Swimming, Sightseeing in the Beaches, and kayaking."}
                 </p>
                 
                 <div className="space-y-3">
                   <h4 className="font-bold text-slate-900 border-b pb-1">Destinations:</h4>
                   <ul className="space-y-2 text-xs">
-                    <li><strong className="text-slate-800">Big Lagoon</strong> - kayaking activity that you can go around 800meters to 1 kilometer inside to see the clear water of the Lagoon</li>
-                    <li><strong className="text-slate-800">Secret Lagoon</strong> - there's a small entrance to go inside and you can see the beautiful rock formations that looks like crocodile head, eagle head and more..</li>
-                    <li><strong className="text-slate-800">Snorkeling spot</strong> - where you will see the crystal view of the corals and a lot of fishes</li>
-                    <li><strong className="text-slate-800">Shimizu Island</strong> - a clear water beach that you will eat your lunch and do for snorkeling along the shores</li>
-                    <li><strong className="text-slate-800">Seven Commandos Beach</strong> - a clean white sand beach that you relax, play volleyball, sunbathing, snorkeling, swimming, buy beers to drink and eat some snacks.</li>
+                    <li><strong className="text-slate-800">Big Lagoon</strong> kayaking activity that you can go around 800meters to 1 kilometer inside to see the clear water of the Lagoon</li>
+                    <li><strong className="text-slate-800">Secret Lagoon</strong> there's a small entrance to go inside and you can see the beautiful rock formations that looks like crocodile head, eagle head and more..</li>
+                    <li><strong className="text-slate-800">Snorkeling spot</strong> where you will see the crystal view of the corals and a lot of fishes</li>
+                    <li><strong className="text-slate-800">Shimizu Island</strong> a clear water beach that you will eat your lunch and do for snorkeling along the shores</li>
+                    <li><strong className="text-slate-800">Seven Commandos Beach</strong> a clean white sand beach that you relax, play volleyball, sunbathing, snorkeling, swimming, buy beers to drink and eat some snacks.</li>
                   </ul>
                 </div>
 

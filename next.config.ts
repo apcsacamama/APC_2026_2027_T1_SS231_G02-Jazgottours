@@ -9,7 +9,16 @@ const nextConfig: NextConfig = {
         "*.app.github.dev"
       ]
     }
-  }
+  },
+  images: {
+    unoptimized: true, // <--- THIS FIXES THE CODESPACES IMAGE BUG
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'www.travelandleisure.com',
+      },
+    ],
+  },
 }
 
 export default nextConfig
