@@ -1,7 +1,61 @@
+"use client"
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import { FiHome, FiPackage, FiFileText, FiUsers, FiLogOut } from 'react-icons/fi';
+import { supabase } from '@/lib/supabase'; // Make sure this path matches your setup
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // If no session and not already on the login page, redirect to login
+      if (!session && pathname !== '/admin/login') {
+        router.push('/admin/login');
+      } else {
+        setLoading(false);
+      }
+    };
+
+    checkUser();
+
+    // Listen for auth changes (like logging out)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        router.push('/admin/login');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [pathname, router]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/'); // Sends them to the public homepage after logging out
+  };
+
+  // Show a themed loading spinner while checking auth state
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#f4f1ea]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#dfa241]"></div>
+      </div>
+    );
+  }
+
+  // If we are on the login page, render just the children without the sidebar/header
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex h-screen bg-[#f4f1ea] font-sans antialiased text-slate-800 overflow-hidden">
       {/* Admin Sidebar with Rich Mustard-Amber Glass & Soft Multi-Stop Gradient */}
@@ -79,12 +133,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Exit / Back to Public Site Footer */}
         <div className="p-4 border-t border-[#c29d6d]/30 bg-white/30 backdrop-blur-md relative z-10">
-          <Link 
-            href="/" 
+          <button 
+            onClick={handleLogout}
             className="flex items-center justify-center gap-2.5 w-full py-3 bg-[#3d2e1b] hover:bg-[#261d11] active:scale-[0.98] rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-amber-100 shadow-md border border-amber-900/30"
           >
-            <FiLogOut size={15} /> Exit to Public Site
-          </Link>
+            <FiLogOut size={15} /> Log Out & Exit
+          </button>
         </div>
       </aside>
 
