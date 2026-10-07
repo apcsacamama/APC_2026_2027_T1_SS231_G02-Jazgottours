@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { FiHome, FiPackage, FiFileText, FiUsers, FiLogOut } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase'; // Make sure this path matches your setup
+import { Logo } from '@/components/logo';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -66,15 +67,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="absolute bottom-12 -right-12 w-44 h-44 bg-gradient-to-tl from-[#e3af58]/25 to-transparent rounded-full blur-2xl pointer-events-none"></div>
 
         <div className="relative z-10">
-          {/* Brand Header with Richer Mustard Tone */}
-          <div className="px-6 py-7 border-b border-[#c29d6d]/30 flex items-center gap-3.5 bg-white/30 backdrop-blur-md">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#d99732] to-[#b8731b] text-white font-bold flex items-center justify-center text-base shadow-md shadow-amber-900/10 border border-white/40">
-              J
-            </div>
-            <div>
-              <h2 className="text-sm font-bold tracking-wide text-slate-900 leading-tight">JGT Admin Portal</h2>
-              <p className="text-[10px] text-[#9c661d] font-bold tracking-widest uppercase mt-0.5">Management System</p>
-            </div>
+          {/* Brand Header */}
+          <div className="px-6 py-7 border-b border-[#c29d6d]/30 bg-white/30 backdrop-blur-md">
+            <Logo className="h-10" />
+            <p className="text-[10px] text-slate-600 font-bold tracking-widest uppercase mt-3">Admin Workspace</p>
           </div>
 
           {/* Jelly / Glass Navigation Cards with Warm Mustard Accents */}

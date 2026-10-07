@@ -1,6 +1,6 @@
-import Image from "next/image"
 import Link from "next/link"
 import { AuthHeaderAction } from "@/components/auth-header-action"
+import { Logo } from "@/components/logo"
 
 const navLinks = [
   { href: "/about", label: "ABOUT" },
@@ -12,15 +12,10 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 bg-brand text-primary-foreground">
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center overflow-hidden rounded-md bg-white">
-            <Image
-              src="/logo.png"
-              alt="Jazgot Tour Services logo"
-              width={40}
-              height={40}
-              className="size-9 object-contain"
-            />
+        <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-90">
+          <span className="flex size-10 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
+            {/* New SVG Logo (Icon Only) */}
+            <Logo showText={false} className="size-10" />
           </span>
           <span className="leading-tight text-primary-foreground">
             <span className="block font-heading text-lg font-bold">Jazgot</span>
@@ -41,14 +36,14 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        {/* Sign in */}
+        {/* Sign in / Mobile Nav */}
         <div className="flex items-center gap-4">
           <nav className="flex items-center gap-5 md:hidden">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-xs font-semibold tracking-wide text-primary-foreground/95"
+                className="text-xs font-semibold tracking-wide text-primary-foreground/95 hover:opacity-80 transition-opacity"
               >
                 {link.label}
               </Link>
