@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       const numbers = rawText.match(/\b\d+\b/g);
       if (numbers) {
         // Filter out numbers that belong to the duration code
-        const filteredNums = numbers.map(Number).filter(n => n !== 4 && n !== 3 && n !== 1 && n !== 2); // basic filter or just grab the last small number if appropriate
+        const filteredNums = numbers.map(Number).filter((n: number) => n !== 4 && n !== 3 && n !== 1 && n !== 2);
         if (filteredNums.length > 0) pax = filteredNums[0];
       }
     }
