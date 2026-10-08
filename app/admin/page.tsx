@@ -17,12 +17,7 @@ export default function AdminHomePage() {
           <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Welcome Back, Jasmine!</h1>
           <p className="text-sm text-gray-600">Here is the quick overview of your sales and marketing activities.</p>
         </div>
-        <Link
-          href="/admin/quotation"
-          className="bg-[#c89134] hover:bg-[#b07c29] text-white px-4 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition shadow-sm w-fit"
-        >
-          <FiPlus size={16} /> New Quotation
-        </Link>
+        
       </div>
 
       {/* Stats Cards Row */}
