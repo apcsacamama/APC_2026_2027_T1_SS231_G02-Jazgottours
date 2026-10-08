@@ -1,411 +1,169 @@
 'use client';
 
-import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
-const supabase = createClient(
-  'https://ahvfnuwdglbohtxwmrfc.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFodmZudXdkZ2xib2h0eHdtcmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NzY4ODEsImV4cCI6MjEwMzE1Mjg4MX0.F6vljBSLGHoNFL1D5gRjkj--0s3EF2epzjb6YOa7G7s'
-);
+interface Quotation {
+  id: string;
+  reference_no: string;
+  client_name: string;
+  client_email: string;
+  client_contact: string;
+  package_name: string;
+  pax: number;
+  total_amount: number;
+  status: string;
+  created_at: string;
+}
 
-const TOUR_PACKAGES = [
-  { id: 'tour-a', name: 'El Nido Island Hopping Tour A with Lunch', price: 1350 },
-  { id: 'tour-b', name: 'El Nido Island Hopping Tour B with Lunch', price: 1500 },
-  { id: 'tour-c', name: 'El Nido Island Hopping Tour C with Lunch', price: 1600 },
-];
+export default function QuotationRecordsPage() {
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const ADD_ONS_LIST = [
-  { id: 'kayak', name: 'Transparent Kayak Rental', price: 500 },
-  { id: 'snorkel', name: 'Snorkeling Gear Set Rental', price: 300 },
-  { id: 'transfer', name: 'Private Van Transfer (PPS - El Nido roundtrip)', price: 3500 },
-];
+  useEffect(() => {
+    fetchQuotations();
+  }, []);
 
-export default function QuotationPage() {
-  const [activeTab, setActiveTab] = useState<'manual' | 'ai'>('ai');
-  const [rawText, setRawText] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // Modal and feedback states
-  const [modalState, setModalState] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'success',
-  });
-
-  const [clientName, setClientName] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [clientContact, setClientContact] = useState('');
-  const [duration, setDuration] = useState('4D3N');
-  const [pax, setPax] = useState<number>(2);
-  
-  const [selectedPackageId, setSelectedPackageId] = useState<string>('tour-a');
-  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
-
-  const activePackage = TOUR_PACKAGES.find(p => p.id === selectedPackageId) || TOUR_PACKAGES[0];
-  const packageSubtotal = activePackage.price * Number(pax);
-  const addOnsSubtotal = selectedAddOns.reduce((sum, addOnId) => {
-    const addon = ADD_ONS_LIST.find(a => a.id === addOnId);
-    return sum + (addon ? addon.price : 0);
-  }, 0);
-  const totalAmount = packageSubtotal + addOnsSubtotal;
-
-  const handleAIParse = async () => {
-    if (!rawText.trim()) return;
-    setLoading(true);
-
+  const fetchQuotations = async () => {
     try {
-      const res = await fetch('/admin/api/parse-quotation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawText }),
-      });
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const result = await res.json();
-
-      if (result.success && result.data) {
-        const { client_name, client_email, client_contact, duration, pax, tour_activities } = result.data;
-        
-        if (client_name) setClientName(client_name);
-        if (client_email) setClientEmail(client_email);
-        if (client_contact) setClientContact(client_contact);
-        if (duration) setDuration(duration);
-        if (pax) setPax(pax);
-
-        if (tour_activities && tour_activities.length > 0) {
-          const matchedText = tour_activities[0].toLowerCase();
-          if (matchedText.includes('tour b')) setSelectedPackageId('tour-b');
-          else if (matchedText.includes('tour c')) setSelectedPackageId('tour-c');
-          else setSelectedPackageId('tour-a');
-        }
-
-        setActiveTab('manual');
-      } else {
-        setModalState({
-          isOpen: true,
-          title: 'Parsing Error',
-          message: 'Failed to parse message: ' + (result.error || 'Unknown error'),
-          type: 'error',
-        });
-      }
+      if (error) throw error;
+      setQuotations(data || []);
     } catch (err: any) {
-      setModalState({
-        isOpen: true,
-        title: 'Network Error',
-        message: 'Network or parsing error: ' + err.message,
-        type: 'error',
-      });
-    }
-
-    setLoading(false);
-  };
-
-  const handleAddOnToggle = (id: string) => {
-    if (selectedAddOns.includes(id)) {
-      setSelectedAddOns(selectedAddOns.filter(item => item !== id));
-    } else {
-      setSelectedAddOns([...selectedAddOns, id]);
+      console.error('Error fetching quotations:', err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSaveQuotation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const referenceNo = `Q-${Date.now().toString().slice(-6)}`;
-
-    const { error } = await supabase
-      .from('quotations')
-      .insert([
-        {
-          reference_no: referenceNo,
-          client_name: clientName,
-          client_email: clientEmail,
-          client_contact: clientContact,
-          duration: duration,
-          pax: Number(pax),
-          status: 'Draft',
-          total_amount: totalAmount,
-        }
-      ]);
-
-    if (error) {
-      setModalState({
-        isOpen: true,
-        title: 'Database Error',
-        message: 'Error saving quotation record: ' + error.message,
-        type: 'error',
-      });
-    } else {
-      setModalState({
-        isOpen: true,
-        title: 'Action Successful',
-        message: `Quotation record reference number ${referenceNo} has been successfully saved to the registry.`,
-        type: 'success',
-      });
-    }
-  };
+  // Calculate metrics
+  const totalQuotations = quotations.length;
+  const pendingDraftsCount = quotations.filter(
+    (q) => q.status === 'Draft' || q.status === 'Pending' || !q.status
+  ).length;
+  const convertedCount = quotations.filter(
+    (q) => q.status === 'Converted' || q.status === 'Confirmed'
+  ).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10 font-sans text-gray-900 bg-white relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 mb-8 border-b border-gray-200 gap-4">
+    <div className="max-w-6xl mx-auto px-6 py-10 font-sans text-slate-900 bg-white space-y-8">
+      {/* Top Header & Navigation */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-6 gap-4">
         <div>
-          <span className="text-xs font-semibold tracking-wider text-blue-600 uppercase">Jazgot Tours Administration</span>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 mt-1">Quotation Management Module</h1>
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full">
+            Command Center
+          </span>
+          <h1 className="text-2xl font-bold text-slate-900 mt-2">Quotation Records</h1>
+          <p className="text-sm text-slate-600">Monitor historical inquiries, track pipeline status, and manage client bookings.</p>
         </div>
-        
-        <div className="inline-flex bg-gray-100 p-1 rounded-lg border border-gray-200">
-          <button
-            type="button"
-            onClick={() => setActiveTab('ai')}
-            className={`px-4 py-2 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'ai' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Chat Message Parser
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('manual')}
-            className={`px-4 py-2 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Quotation Form
-          </button>
+        <Link
+          href="/admin/quotation/create"
+          className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+        >
+          <span>+ New AI Quotation</span>
+        </Link>
+      </div>
+
+      {/* KPI Summary Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Total Quotations */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Quotations</p>
+          <h3 className="text-3xl font-extrabold text-slate-900">{totalQuotations}</h3>
+          <p className="text-[11px] text-slate-400">All-time logged client requests</p>
+        </div>
+
+        {/* Pending / Drafts */}
+        <div className="bg-amber-50/55 border border-amber-200 rounded-2xl p-6 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">Pending / Drafts</p>
+          <h3 className="text-3xl font-extrabold text-amber-900">{pendingDraftsCount}</h3>
+          <p className="text-[11px] text-amber-700/80">Number of quotes awaiting client follow-up or final confirmation.</p>
+        </div>
+
+        {/* Converted Bookings */}
+        <div className="bg-emerald-50/55 border border-emerald-200 rounded-2xl p-6 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">Converted Bookings</p>
+          <h3 className="text-3xl font-extrabold text-emerald-900">{convertedCount}</h3>
+          <p className="text-[11px] text-emerald-700/80">Quotations that successfully transitioned into confirmed tours.</p>
         </div>
       </div>
 
-      {activeTab === 'ai' && (
-        <div className="mb-8 p-6 bg-gray-50 border border-gray-200 rounded-xl">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">Automated Inquiry Extraction</h2>
-          <p className="text-xs text-gray-500 mb-4">Paste unstructured client chat logs below to automatically populate customer parameters and map package preferences.</p>
-          <textarea
-            rows={4}
-            className="w-full p-3.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm"
-            placeholder="Paste client inquiry text here..."
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-          />
-          <button
-            type="button"
-            onClick={handleAIParse}
-            disabled={loading}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-sm"
-          >
-            {loading ? 'Processing Text...' : 'Extract and Populate Form'}
-          </button>
-        </div>
-      )}
-
-      <form onSubmit={handleSaveQuotation} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700 border-b border-gray-100 pb-3">Client Profile Information</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Full Client Name</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Contact Number</label>
-                  <input
-                    type="text"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-                    value={clientContact}
-                    onChange={(e) => setClientContact(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Duration</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Headcount (Pax)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-                    value={pax}
-                    onChange={(e) => setPax(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700 border-b border-gray-100 pb-3">Select Tour Package</h2>
-            <div className="space-y-3">
-              {TOUR_PACKAGES.map((pkg) => {
-                const isSelected = selectedPackageId === pkg.id;
-                return (
-                  <label
-                    key={pkg.id}
-                    className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all ${
-                      isSelected ? 'border-blue-600 bg-blue-50/20 ring-1 ring-blue-600/30' : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="tour_package"
-                        checked={isSelected}
-                        onChange={() => setSelectedPackageId(pkg.id)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                      />
-                      <span className="text-sm font-semibold text-gray-900">{pkg.name}</span>
-                    </div>
-                    <span className="text-sm font-bold text-gray-900">₱{pkg.price.toLocaleString()} <span className="text-xs font-normal text-gray-500">/ pax</span></span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700 border-b border-gray-100 pb-3">Optional Add-ons</h2>
-            <div className="space-y-3">
-              {ADD_ONS_LIST.map((addon) => {
-                const isChecked = selectedAddOns.includes(addon.id);
-                return (
-                  <label
-                    key={addon.id}
-                    className={`flex items-center justify-between p-3.5 border rounded-lg cursor-pointer transition-all ${
-                      isChecked ? 'border-blue-600 bg-blue-50/20' : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleAddOnToggle(addon.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-900">{addon.name}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-700">+₱{addon.price.toLocaleString()}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+      {/* Database Log Table */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Historical Log Database</h3>
+          <span className="text-xs text-slate-500">{quotations.length} records found</span>
         </div>
 
-        <div className="lg:col-span-1">
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 sticky top-6 space-y-6 shadow-sm">
-            <div>
-              <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Financial Breakdown</span>
-              <h3 className="text-base font-bold text-gray-900 mt-0.5">Quotation Summary</h3>
-            </div>
-
-            <div className="space-y-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
-              <div className="flex justify-between">
-                <span>Headcount:</span>
-                <span className="font-semibold text-gray-900">{pax} Pax</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Duration:</span>
-                <span className="font-semibold text-gray-900">{duration}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Package Subtotal:</span>
-                <span className="font-semibold text-gray-900">₱{packageSubtotal.toLocaleString()}</span>
-              </div>
-              {selectedAddOns.length > 0 && (
-                <div className="flex justify-between">
-                  <span>Add-ons Subtotal:</span>
-                  <span className="font-semibold text-gray-900">₱{addOnsSubtotal.toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-baseline mb-6">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Total Amount:</span>
-                <span className="text-xl font-black text-blue-600">₱{totalAmount.toLocaleString()}</span>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm"
-              >
-                Save Quotation Record
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </form>
-
-      {/* Formal Modal Dialog Overlay */}
-      {modalState.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs px-4">
-          <div className="bg-white border border-gray-200 rounded-2xl max-w-sm w-full p-6 shadow-xl text-center relative space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            
-            <button
-              type="button"
-              onClick={() => setModalState(prev => ({ ...prev, isOpen: false }))}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-sm font-bold"
+        {loading ? (
+          <div className="p-12 text-center text-xs text-slate-500">Loading quotation logs...</div>
+        ) : quotations.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <p className="text-xs text-slate-500">No quotation records found in Supabase.</p>
+            <Link
+              href="/admin/quotation/create"
+              className="inline-block text-xs font-semibold text-amber-600 hover:underline"
             >
-              ✕
-            </button>
-
-            <div className="flex justify-center pt-2">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center border ${
-                modalState.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-red-50 border-red-200 text-red-600'
-              }`}>
-                <span className="text-xl font-bold">{modalState.type === 'success' ? '✓' : '!'}</span>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-gray-900">{modalState.title}</h3>
-              <p className="text-xs text-gray-500 leading-relaxed px-2">
-                {modalState.message}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setModalState(prev => ({ ...prev, isOpen: false }))}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm"
-            >
-              Done
-            </button>
-
+              Create your first quotation →
+            </Link>
           </div>
-        </div>
-      )}
-
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-600 font-semibold uppercase tracking-wider text-[10px]">
+                  <th className="p-4">Reference No</th>
+                  <th className="p-4">Client Name</th>
+                  <th className="p-4">Package</th>
+                  <th className="p-4">Pax</th>
+                  <th className="p-4">Total Amount</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">Date Logged</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {quotations.map((q) => (
+                  <tr key={q.id || q.reference_no} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-4 font-mono font-semibold text-amber-700">{q.reference_no}</td>
+                    <td className="p-4">
+                      <div className="font-semibold text-slate-900">{q.client_name}</div>
+                      <div className="text-slate-400 text-[11px]">{q.client_email}</div>
+                    </td>
+                    <td className="p-4 text-slate-700 max-w-xs truncate">{q.package_name}</td>
+                    <td className="p-4 text-slate-700">{q.pax} Pax</td>
+                    <td className="p-4 font-semibold text-slate-900">
+                      ₱{q.total_amount?.toLocaleString() ?? '0'}
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          q.status === 'Converted' || q.status === 'Confirmed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {q.status || 'Draft'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-500">
+                      {new Date(q.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,96 +1,106 @@
+'use client';
+
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
 
-export const dynamic = 'force-dynamic'; // Prevent caching so new records show up instantly
+export default function QuotationRecordsPage() {
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<any>(null);
 
-export default async function QuotationRecordsPage() {
-  // Fetch directly on the server
-  const { data: quotations, error } = await supabase
-    .from('quotations')
-    .select('*')
-    .order('created_at', { ascending: false });
+  useEffect(() => {
+    fetchQuotations();
+  }, []);
 
-  if (error) {
-    console.error('Error fetching quotations on server:', error.message);
+  async function fetchQuotations() {
+    try {
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setQuotations(data || []);
+    } catch (err: any) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 p-6">
+    <div className="max-w-6xl mx-auto px-6 py-10 font-sans text-gray-900 bg-white">
       {/* Header Section */}
-      <div className="flex justify-between items-center bg-white/70 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-amber-200/50">
+      <div className="flex justify-between items-center pb-6 mb-8 border-b border-gray-200">
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full">
-            Database Log
-          </span>
-          <h1 className="text-2xl font-bold text-slate-900 mt-2">Quotation Records</h1>
-          <p className="text-sm text-slate-600">Track all historical quotations saved via the AI parser.</p>
+          <span className="text-xs font-semibold tracking-wider text-blue-600 uppercase">Database Log</span>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 mt-1">Quotation Records</h1>
+          <p className="text-xs text-gray-500 mt-1">Track all historical quotations saved via the AI parser or manual form.</p>
         </div>
+        {/* Clicking this button navigates to the dedicated AI parser & form creation page */}
         <Link
-          href="/admin/quotation"
-          className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-md transition-all text-sm flex items-center gap-2"
+          href="/admin/quotation/create"
+          className="bg-orange-600 hover:bg-orange-700 text-white font-medium px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer"
         >
           + New AI Quotation
         </Link>
       </div>
 
-      {/* Error or Empty State vs Table Display */}
       {error ? (
-        <div className="bg-red-50 border border-red-200 p-6 rounded-2xl text-center text-red-700">
-          <p className="font-semibold">Failed to load quotation records from database.</p>
-          <p className="text-xs mt-1 text-red-500">{error.message}</p>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+          Error loading quotation records: {error.message}
         </div>
+      ) : loading ? (
+        <div className="p-8 text-center text-xs text-gray-400">Loading records...</div>
       ) : !quotations || quotations.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center border border-amber-200/50 shadow-sm">
-          <div className="w-12 h-12 bg-amber-50 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
-            📄
-          </div>
-          <h3 className="text-lg font-semibold text-slate-800">No quotation records found.</h3>
-          <p className="text-sm text-slate-500 mt-1">Generate and save your first quotation using the AI parser workspace.</p>
+        <div className="p-8 text-center bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-500">
+          No quotation records found in the database.
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-amber-200/50 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-amber-50/50 border-b border-amber-100 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  <th className="p-4">Reference No</th>
-                  <th className="p-4">Client Name</th>
-                  <th className="p-4">Contact / Email</th>
-                  <th className="p-4">Duration / Pax</th>
-                  <th className="p-4">Total Amount</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Created At</th>
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase font-bold tracking-wider">
+                <th className="py-3.5 px-4">Reference No</th>
+                <th className="py-3.5 px-4">Client Name</th>
+                <th className="py-3.5 px-4">Contact / Email</th>
+                <th className="py-3.5 px-4">Pax</th>
+                <th className="py-3.5 px-4">Total Amount</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Created At</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {quotations.map((q) => (
+                <tr key={q.reference_no || q.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-4 px-4 font-bold text-blue-600">
+                    <Link href={`/admin/quotation/${q.reference_no}`} className="hover:underline">
+                      {q.reference_no}
+                    </Link>
+                  </td>
+                  <td className="py-4 px-4 font-semibold text-gray-900">{q.client_name}</td>
+                  <td className="py-4 px-4 text-gray-600">
+                    <span className="block">{q.client_email}</span>
+                    <span className="text-[11px] text-gray-400">{q.client_contact}</span>
+                  </td>
+                  <td className="py-4 px-4 text-gray-600">
+                    <span className="block">{q.duration}</span>
+                    <span className="font-semibold text-gray-900">{q.pax}</span>
+                  </td>
+                  <td className="py-4 px-4 font-bold text-gray-900">₱{Number(q.total_amount || 0).toLocaleString()}</td>
+                  <td className="py-4 px-4">
+                    <span className="px-2.5 py-1 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {q.status}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4 text-gray-500">
+                    {q.created_at ? new Date(q.created_at).toLocaleString() : 'N/A'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {quotations.map((q) => (
-                  <tr key={q.id} className="hover:bg-amber-50/30 transition-colors">
-                    <td className="p-4 font-medium text-amber-900">{q.reference_no || 'N/A'}</td>
-                    <td className="p-4 font-semibold text-slate-900">{q.client_name || 'Unnamed Client'}</td>
-                    <td className="p-4 text-xs text-slate-500">
-                      <div>{q.client_email}</div>
-                      <div>{q.client_contact}</div>
-                    </td>
-                    <td className="p-4 text-xs">
-                      <div>{q.duration}</div>
-                      <div className="text-slate-500">{q.pax}</div>
-                    </td>
-                    <td className="p-4 font-bold text-slate-900">
-                      ₱{typeof q.total_amount === 'number' ? q.total_amount.toFixed(2) : q.total_amount}
-                    </td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                        {q.status || 'Saved'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs text-slate-500">
-                      {q.created_at ? new Date(q.created_at).toLocaleString() : 'N/A'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
