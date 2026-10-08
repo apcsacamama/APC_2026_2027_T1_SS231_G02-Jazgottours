@@ -57,11 +57,12 @@ export function GeminiChatbot() {
       if (!res.ok) throw new Error(data.error || "Failed to reach AI concierge.")
 
       setMessages((prev) => [...prev, { role: "bot", text: data.reply }])
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send message.")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to send message."
+      toast.error(errorMessage)
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: "Sorry, I am having trouble connecting right now." },
+        { role: "bot", text: errorMessage },
       ])
     } finally {
       setIsLoading(false)
