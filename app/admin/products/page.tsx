@@ -10,6 +10,7 @@ type TourPackage = {
   destinations: number
   destination_details: string | null
   inclusions: string | null
+  exclusions: string | null // <-- Added exclusions type
   original_price: number
   price: number
   image: string
@@ -30,6 +31,7 @@ export default function ProductsPage() {
     destinations: 5,
     destination_details: '',
     inclusions: '',
+    exclusions: '', // <-- Added exclusions state
     original_price: 0,
     price: 0,
     image: ''
@@ -61,7 +63,7 @@ export default function ProductsPage() {
 
   const openAddModal = () => {
     setEditingId(null)
-    setFormData({ title: '', description: '', destinations: 5, destination_details: '', inclusions: '', original_price: 0, price: 0, image: '' })
+    setFormData({ title: '', description: '', destinations: 5, destination_details: '', inclusions: '', exclusions: '', original_price: 0, price: 0, image: '' })
     setIsModalOpen(true)
   }
 
@@ -73,6 +75,7 @@ export default function ProductsPage() {
       destinations: pkg.destinations,
       destination_details: pkg.destination_details || '',
       inclusions: pkg.inclusions || '',
+      exclusions: pkg.exclusions || '', // <-- Populated exclusions on edit
       original_price: pkg.original_price,
       price: pkg.price,
       image: pkg.image
@@ -85,7 +88,7 @@ export default function ProductsPage() {
     
     try {
       await deletePackage(id)
-      fetchPackages() // Refresh the table
+      fetchPackages()
     } catch (err) {
       alert('Failed to delete package')
       console.error(err)
@@ -108,7 +111,7 @@ export default function ProductsPage() {
       }
       
       setIsModalOpen(false)
-      fetchPackages() // Refresh the table
+      fetchPackages()
     } catch (err) {
       alert('Failed to save package')
       console.error(err)
@@ -204,7 +207,7 @@ export default function ProductsPage() {
                   onChange={(e) => setFormData({...formData, destination_details: e.target.value})}
                   placeholder="Enter one destination per line"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={4}
+                  rows={3}
                 />
               </div>
 
@@ -215,7 +218,18 @@ export default function ProductsPage() {
                   onChange={(e) => setFormData({...formData, inclusions: e.target.value})}
                   placeholder="Enter one inclusion or required fee per line"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={4}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Exclusions</label>
+                <textarea
+                  value={formData.exclusions}
+                  onChange={(e) => setFormData({...formData, exclusions: e.target.value})}
+                  placeholder="Enter one exclusion per line"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
                 />
               </div>
 

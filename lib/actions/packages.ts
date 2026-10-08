@@ -17,6 +17,7 @@ export async function addPackage(formData: FormData) {
     destinations: formData.get('destinations') as string,
     destination_details: formData.get('destination_details') as string,
     inclusions: formData.get('inclusions') as string,
+    exclusions: formData.get('exclusions') as string, // <-- Added exclusions here
     original_price: Number(formData.get('original_price')),
     price: Number(formData.get('price')),
     image: formData.get('image') as string,
@@ -35,6 +36,7 @@ export async function updatePackage(id: number, formData: FormData) {
     destinations: formData.get('destinations') as string,
     destination_details: formData.get('destination_details') as string,
     inclusions: formData.get('inclusions') as string,
+    exclusions: formData.get('exclusions') as string, // <-- Added exclusions here
     original_price: Number(formData.get('original_price')),
     price: Number(formData.get('price')),
     image: formData.get('image') as string,

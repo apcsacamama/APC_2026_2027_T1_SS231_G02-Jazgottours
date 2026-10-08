@@ -20,6 +20,7 @@ type TourPackage = {
   image: string | null
   destination_details?: string | null
   inclusions?: string | null
+  exclusions?: string | null // <-- Added exclusions type definition
 }
 
 const bookingStorageKey = "jazgot-booking"
@@ -45,7 +46,7 @@ export function ProductsSection() {
   const router = useRouter()
   const { user } = useAuth()
 
-  // --- NEW: Live Packages State ---
+  // --- Live Packages State ---
   const [livePackages, setLivePackages] = useState<TourPackage[]>([])
   const [loadingPackages, setLoadingPackages] = useState(true)
 
@@ -71,7 +72,7 @@ export function ProductsSection() {
   const [bookedDates, setBookedDates] = useState<string[]>([])
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
 
-  // --- NEW: Fetch Packages on Load ---
+  // --- Fetch Packages on Load ---
   useEffect(() => {
     const fetchLiveTours = async () => {
       try {
@@ -201,7 +202,6 @@ export function ProductsSection() {
               onClick={() => handleTourClick(tour)} 
               className="cursor-pointer transition-transform hover:scale-[1.02]"
             >
-              {/* Ensure ProductCard can read your Supabase column names */}
               <ProductCard tour={{
                 id: String(tour.id),
                 title: tour.title,
@@ -268,12 +268,12 @@ export function ProductsSection() {
         </div>
       )}
 
-      {/* 2. BOOKING MODAL WITH ADD-ONS */}
+      {/* 2. BOOKING MODAL WITH EXCLUSIONS */}
       {user && selectedTour && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl overflow-y-auto md:overflow-hidden max-w-5xl w-full max-h-[90vh] shadow-2xl flex flex-col md:flex-row">
             
-            {/* LEFT COLUMN: Tour Details */}
+            {/* LEFT COLUMN: Tour Details & Exclusions */}
             <div className="md:w-1/2 bg-white md:overflow-y-auto flex flex-col">
               <div className="h-48 md:h-64 lg:h-72 w-full relative shrink-0">
                 <img 
@@ -303,7 +303,7 @@ export function ProductsSection() {
 
                 {selectedTour.inclusions && (
                   <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                    <h4 className="font-bold text-emerald-800 mb-2">Inclusions and required fees:</h4>
+                    <h4 className="font-bold text-emerald-800 mb-2">Inclusions:</h4>
                     <ul className="list-disc pl-4 text-xs space-y-1 text-emerald-700">
                       {selectedTour.inclusions.split("\n").filter(Boolean).map((inclusion: string, index: number) => (
                         <li key={`${index}-${inclusion}`}>{inclusion}</li>
@@ -311,10 +311,22 @@ export function ProductsSection() {
                     </ul>
                   </div>
                 )}
+
+                {/* Exclusions Section added here */}
+                {selectedTour.exclusions && (
+                  <div className="bg-rose-50 p-3 rounded-lg border border-rose-100">
+                    <h4 className="font-bold text-rose-800 mb-2">Exclusions:</h4>
+                    <ul className="list-disc pl-4 text-xs space-y-1 text-rose-700">
+                      {selectedTour.exclusions.split("\n").filter(Boolean).map((exclusion: string, index: number) => (
+                        <li key={`${index}-${exclusion}`}>{exclusion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Booking Form & Add-ons */}
+            {/* RIGHT COLUMN: Booking Form */}
             <div className="md:w-1/2 bg-slate-50 p-6 md:p-8 flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-200 shrink-0 md:overflow-y-auto">
               <div>
                 <div className="mb-6 flex justify-between items-start">
