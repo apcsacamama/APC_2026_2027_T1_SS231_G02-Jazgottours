@@ -8,37 +8,6 @@ export type Tour = {
   image: string
 }
 
-export const tours: Tour[] = [
-  {
-    id: "tour-a",
-    title: "El Nido Island Hopping Tour A with Lunch",
-    description:
-      "Experience the clear water of El Nido Islands with white sands in 5 Destinations",
-    destinations: 5,
-    originalPrice: 1500,
-    price: 1350,
-    image: "/tour-a.png",
-  },
-  {
-    id: "tour-b",
-    title: "El Nido Island Hopping Tour B with Lunch",
-    description: "Experience the clear water of El Nido and Island Caves",
-    destinations: 5,
-    originalPrice: 1600,
-    price: 1500,
-    image: "/tour-b.png",
-  },
-  {
-    id: "tour-c",
-    title: "El Nido Island Hopping Tour C with Lunch",
-    description: "The Premier Island Hopping Experience in El Nido",
-    destinations: 5,
-    originalPrice: 1700,
-    price: 1600,
-    image: "/tour-c.png",
-  },
-]
-
 export const heroSlides = [
   {
     title: "EL NIDO",
