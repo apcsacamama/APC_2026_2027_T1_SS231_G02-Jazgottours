@@ -1,6 +1,5 @@
 'use server'
 
-// Corrected import to match your project structure
 import { supabase } from '@/lib/supabase' 
 import { revalidatePath } from 'next/cache'
 
@@ -15,9 +14,10 @@ export async function addPackage(formData: FormData) {
   const newPackage = {
     title: formData.get('title') as string,
     description: formData.get('description') as string,
-    destinations: Number(formData.get('destinations')),
+    destinations: formData.get('destinations') as string,
     destination_details: formData.get('destination_details') as string,
     inclusions: formData.get('inclusions') as string,
+    exclusions: formData.get('exclusions') as string, // <-- Added exclusions here
     original_price: Number(formData.get('original_price')),
     price: Number(formData.get('price')),
     image: formData.get('image') as string,
@@ -33,9 +33,10 @@ export async function updatePackage(id: number, formData: FormData) {
   const updatedData = {
     title: formData.get('title') as string,
     description: formData.get('description') as string,
-    destinations: Number(formData.get('destinations')),
+    destinations: formData.get('destinations') as string,
     destination_details: formData.get('destination_details') as string,
     inclusions: formData.get('inclusions') as string,
+    exclusions: formData.get('exclusions') as string, // <-- Added exclusions here
     original_price: Number(formData.get('original_price')),
     price: Number(formData.get('price')),
     image: formData.get('image') as string,
