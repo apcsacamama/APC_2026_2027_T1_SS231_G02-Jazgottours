@@ -1,17 +1,112 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!; // Or use SERVICE_ROLE_KEY if bypassing RLS
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getMinimumBookingDate() {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+  const minimumDate = new Date(`${today}T00:00:00Z`);
+  minimumDate.setUTCDate(minimumDate.getUTCDate() + 2);
+  return minimumDate.toISOString().slice(0, 10);
+}
+
+export async function GET(request: Request) {
+  const packageId = new URL(request.url).searchParams.get('packageId');
+  if (!packageId) {
+    return NextResponse.json({ error: 'Package id is required' }, { status: 400 });
+  }
+
+  const { data: tourPackage, error: packageError } = await supabase
+    .from('packages')
+    .select('title')
+    .eq('id', packageId)
+    .single();
+
+  if (packageError || !tourPackage) {
+    return NextResponse.json({ error: 'Tour package was not found' }, { status: 404 });
+  }
+
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('tour_date')
+    .eq('tour_package', tourPackage.title)
+    .in('payment_status', ['pending', 'paid']);
+
+  if (error) {
+    console.error('Availability lookup error:', error);
+    return NextResponse.json({ error: 'Could not load tour availability' }, { status: 500 });
+  }
+
+  return NextResponse.json({ bookedDates: bookings.map((booking) => booking.tour_date) });
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    
-    // --> ADDED: Dynamically capture the current website URL (whether localhost or GitHub Codespaces)
-    const origin = body.origin;
+    const parsedTourDate = typeof body.tourDate === 'string'
+      ? new Date(`${body.tourDate}T00:00:00Z`)
+      : null;
+    const validTourDate = parsedTourDate &&
+      Number.isFinite(parsedTourDate.getTime()) &&
+      parsedTourDate.toISOString().slice(0, 10) === body.tourDate;
+
+    if (
+      !body.packageId ||
+      typeof body.leadGuestName !== 'string' ||
+      !body.leadGuestName.trim() ||
+      !Number.isSafeInteger(body.pax) ||
+      body.pax < 1 ||
+      typeof body.tourDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(body.tourDate) ||
+      !validTourDate ||
+      body.tourDate < getMinimumBookingDate() ||
+      typeof body.contactNumber !== 'string' ||
+      !/^\+639\d{9}$/.test(body.contactNumber)
+    ) {
+      return NextResponse.json({ error: 'Booking details are invalid or the tour date is too soon' }, { status: 400 });
+    }
+
+    const { data: tourPackage, error: packageError } = await supabase
+      .from('packages')
+      .select('title, price')
+      .eq('id', body.packageId)
+      .single();
+
+    if (packageError || !tourPackage) {
+      return NextResponse.json({ error: 'Tour package was not found' }, { status: 404 });
+    }
+
+    const unitPrice = Number(tourPackage.price);
+    const totalAmount = unitPrice * body.pax;
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0 || Number(body.totalAmount) !== totalAmount) {
+      return NextResponse.json({ error: 'Booking amount does not match the selected package' }, { status: 400 });
+    }
+
+    const { data: existingBookings, error: availabilityError } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('tour_package', tourPackage.title)
+      .eq('tour_date', body.tourDate)
+      .in('payment_status', ['pending', 'paid'])
+      .limit(1);
+
+    if (availabilityError) {
+      console.error('Availability validation error:', availabilityError);
+      return NextResponse.json({ error: 'Could not confirm tour availability' }, { status: 500 });
+    }
+    if (existingBookings.length) {
+      return NextResponse.json({ error: 'This tour date is already booked' }, { status: 409 });
+    }
+
+    let origin: string;
+    try {
+      origin = new URL(body.origin).origin;
+    } catch {
+      return NextResponse.json({ error: 'Invalid checkout origin' }, { status: 400 });
+    }
     
     // 1. Authenticate with Paymongo using your Secret Key
     const paymongoSecret = process.env.PAYMONGO_SECRET_KEY;
@@ -40,8 +135,8 @@ export async function POST(request: Request) {
           line_items: [
             {
               currency: 'PHP',
-              amount: body.totalAmount * 100, // Paymongo requires amounts in cents (e.g., 135000 for ₱1,350)
-              name: body.tourPackage,
+                  amount: unitPrice * 100,
+                  name: tourPackage.title,
               quantity: body.pax
             }
           ],
@@ -76,12 +171,12 @@ export async function POST(request: Request) {
       .insert([
         {
           user_id: body.userId, 
-          tour_package: body.tourPackage,
+          tour_package: tourPackage.title,
           lead_guest_name: body.leadGuestName,
           pax: body.pax,
           tour_date: body.tourDate,
           contact_number: body.contactNumber,
-          total_amount: body.totalAmount,
+          total_amount: totalAmount,
           paymongo_checkout_id: checkoutId,
           payment_status: 'pending'
         }

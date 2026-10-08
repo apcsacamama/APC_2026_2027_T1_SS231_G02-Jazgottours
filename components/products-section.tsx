@@ -6,17 +6,47 @@ import { toast } from "sonner"
 import { ProductCard } from "@/components/product-card"
 import { useAuth } from "@/components/auth-provider"
 import { supabase } from "@/lib/supabase"
-// Remove the static import: import { tours } from "@/lib/tours"
 
 // Import the action we created earlier
 import { getPackages } from "@/lib/actions/packages"
+
+type TourPackage = {
+  id: number | string
+  title: string
+  description: string
+  price: number
+  original_price: number
+  destinations: number
+  image: string | null
+  destination_details?: string | null
+  inclusions?: string | null
+}
+
+const bookingStorageKey = "jazgot-booking"
+
+function getMinimumTourDate() {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+  const date = new Date(`${today}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + 2)
+  return date.toISOString().slice(0, 10)
+}
+
+function normalizePhilippinePhone(phone: string) {
+  const digits = phone.replace(/\D/g, "")
+  return digits.startsWith("63") ? `+${digits}` : `+63${digits.slice(1)}`
+}
 
 export function ProductsSection() {
   const router = useRouter()
   const { user } = useAuth()
 
   // --- NEW: Live Packages State ---
-  const [livePackages, setLivePackages] = useState<any[]>([])
+  const [livePackages, setLivePackages] = useState<TourPackage[]>([])
   const [loadingPackages, setLoadingPackages] = useState(true)
 
   // Auth Modals
@@ -25,8 +55,8 @@ export function ProductsSection() {
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   
   // Tour Selection
-  const [selectedTour, setSelectedTour] = useState<any>(null)
-  const [pendingTour, setPendingTour] = useState<any>(null) 
+  const [selectedTour, setSelectedTour] = useState<TourPackage | null>(null)
+  const [pendingTour, setPendingTour] = useState<TourPackage | null>(null)
 
   // Auth Form Inputs
   const [email, setEmail] = useState("")
@@ -38,17 +68,15 @@ export function ProductsSection() {
   const [pax, setPax] = useState<number | "">(1)
   const [tourDate, setTourDate] = useState("")
   const [contactNumber, setContactNumber] = useState("")
-  
-  // Add-ons State
-  const [includeEtdf, setIncludeEtdf] = useState(false)
-  const [includeLagoon, setIncludeLagoon] = useState(false)
+  const [bookedDates, setBookedDates] = useState<string[]>([])
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
 
   // --- NEW: Fetch Packages on Load ---
   useEffect(() => {
     const fetchLiveTours = async () => {
       try {
         const data = await getPackages()
-        setLivePackages(data || [])
+        setLivePackages((data || []) as TourPackage[])
       } catch (err) {
         console.error("Failed to load tour packages:", err)
       } finally {
@@ -58,14 +86,36 @@ export function ProductsSection() {
     fetchLiveTours()
   }, [])
 
+  useEffect(() => {
+    if (!selectedTour) return
+
+    let cancelled = false
+    const loadAvailability = async () => {
+      setAvailabilityLoading(true)
+      try {
+        const response = await fetch(`/api/checkout?packageId=${encodeURIComponent(selectedTour.id)}`)
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || "Could not load tour availability")
+        if (!cancelled) setBookedDates(data.bookedDates as string[])
+      } catch (error) {
+        console.error("Failed to load tour availability:", error)
+        if (!cancelled) toast.error("Could not load tour availability. Please try again.")
+      } finally {
+        if (!cancelled) setAvailabilityLoading(false)
+      }
+    }
+
+    loadAvailability()
+    return () => { cancelled = true }
+  }, [selectedTour])
+
   // --- DYNAMIC PRICE CALCULATION ---
   const currentPax = typeof pax === "number" && pax > 0 ? pax : 1
   const basePrice = selectedTour?.price || 1350
-  const addonsPrice = (includeEtdf ? 400 : 0) + (includeLagoon ? 200 : 0)
-  const totalAmount = (basePrice + addonsPrice) * currentPax
+  const totalAmount = basePrice * currentPax
 
   // --- LOGIC HANDLERS ---
-  const handleTourClick = (tour: any) => {
+  const handleTourClick = (tour: TourPackage) => {
     if (!user) {
       setPendingTour(tour)
       setShowAuthModal(true)
@@ -110,19 +160,22 @@ export function ProductsSection() {
 
   const handleBookNow = (e: React.FormEvent) => {
     e.preventDefault()
-    toast.loading("Processing your booking details...")
-    
-    // Route to checkout
+    if (!selectedTour || bookedDates.includes(tourDate) || tourDate < getMinimumTourDate()) {
+      toast.error("Choose an available tour date at least 48 hours from now.")
+      return
+    }
+
+    sessionStorage.setItem(bookingStorageKey, JSON.stringify({
+      userId: user?.id ?? null,
+      packageId: selectedTour.id,
+      tourPackage: selectedTour.title,
+      leadGuestName: guestName,
+      pax: currentPax,
+      tourDate,
+      contactNumber: normalizePhilippinePhone(contactNumber),
+      totalAmount,
+    }))
     router.push("/checkout")
-    
-    // Reset form
-    setSelectedTour(null)
-    setGuestName("")
-    setPax(1)
-    setTourDate("")
-    setContactNumber("")
-    setIncludeEtdf(false)
-    setIncludeLagoon(false)
   }
 
   return (
@@ -150,13 +203,13 @@ export function ProductsSection() {
             >
               {/* Ensure ProductCard can read your Supabase column names */}
               <ProductCard tour={{
-                id: tour.id,
+                id: String(tour.id),
                 title: tour.title,
                 description: tour.description,              
                 price: tour.price,
                 originalPrice: tour.original_price,
                 destinations: tour.destinations,
-                image: tour.image              
+                image: tour.image || ""
               }} />
             </div>
           ))}
@@ -224,41 +277,40 @@ export function ProductsSection() {
             <div className="md:w-1/2 bg-white md:overflow-y-auto flex flex-col">
               <div className="h-48 md:h-64 lg:h-72 w-full relative shrink-0">
                 <img 
-                  src={selectedTour.image || selectedTour.imageUrl || "/placeholder-tour.jpg"} 
-                  alt={selectedTour.title || selectedTour.name} 
+                  src={selectedTour.image || "/placeholder-tour.jpg"}
+                  alt={selectedTour.title}
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                 <h3 className="absolute bottom-4 left-6 right-4 text-2xl font-bold text-white drop-shadow-md">
-                  {selectedTour.title || selectedTour.name}
+                  {selectedTour.title}
                 </h3>
               </div>
               
               <div className="p-6 text-sm text-slate-600 space-y-5">
-                <p>
-                  {selectedTour.description || "Experience Island Hopping in El Nido with the most Famous Islands and Adventure. (08:30am to 04:30pm), you can do Island Tours, Snorkeling, Swimming, Sightseeing in the Beaches, and kayaking."}
-                </p>
+                <p>{selectedTour.description}</p>
                 
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-900 border-b pb-1">Destinations:</h4>
-                  <ul className="space-y-2 text-xs">
-                    <li><strong className="text-slate-800">Big Lagoon</strong> kayaking activity that you can go around 800meters to 1 kilometer inside to see the clear water of the Lagoon</li>
-                    <li><strong className="text-slate-800">Secret Lagoon</strong> there's a small entrance to go inside and you can see the beautiful rock formations that looks like crocodile head, eagle head and more..</li>
-                    <li><strong className="text-slate-800">Snorkeling spot</strong> where you will see the crystal view of the corals and a lot of fishes</li>
-                    <li><strong className="text-slate-800">Shimizu Island</strong> a clear water beach that you will eat your lunch and do for snorkeling along the shores</li>
-                    <li><strong className="text-slate-800">Seven Commandos Beach</strong> a clean white sand beach that you relax, play volleyball, sunbathing, snorkeling, swimming, buy beers to drink and eat some snacks.</li>
-                  </ul>
-                </div>
+                {selectedTour.destination_details && (
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-slate-900 border-b pb-1">Destinations:</h4>
+                    <ul className="list-disc space-y-2 pl-4 text-xs">
+                      {selectedTour.destination_details.split("\n").filter(Boolean).map((destination: string, index: number) => (
+                        <li key={`${index}-${destination}`}>{destination}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-                <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                  <h4 className="font-bold text-emerald-800 mb-2">Inclusions:</h4>
-                  <ul className="list-disc pl-4 text-xs space-y-1 text-emerald-700">
-                    <li>Buffet Lunch</li>
-                    <li>License Tour Guide</li>
-                    <li>Boat Transfer</li>
-                    <li>Drinking Water</li>
-                  </ul>
-                </div>
+                {selectedTour.inclusions && (
+                  <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                    <h4 className="font-bold text-emerald-800 mb-2">Inclusions and required fees:</h4>
+                    <ul className="list-disc pl-4 text-xs space-y-1 text-emerald-700">
+                      {selectedTour.inclusions.split("\n").filter(Boolean).map((inclusion: string, index: number) => (
+                        <li key={`${index}-${inclusion}`}>{inclusion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -268,7 +320,7 @@ export function ProductsSection() {
                 <div className="mb-6 flex justify-between items-start">
                   <div>
                     <h3 className="text-2xl font-bold text-slate-900">Secure your slot</h3>
-                    <p className="text-slate-500 text-xs mt-1">Book at least 24-48hrs before tour date.</p>
+                    <p className="text-slate-500 text-xs mt-1">Book at least 48 hours before your tour.</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-500 mb-1">Total Amount</p>
@@ -292,60 +344,29 @@ export function ProductsSection() {
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Number of Pax</label>
                       <input 
-                        type="number" min="1" required value={pax} onChange={(e) => setPax(parseInt(e.target.value))} 
+                        type="number" min="1" required value={pax} onChange={(e) => setPax(e.target.value ? parseInt(e.target.value) : "")}
                         className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ce9136] text-slate-900 outline-none" 
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Tour Date</label>
                       <input 
-                        type="date" required value={tourDate} onChange={(e) => setTourDate(e.target.value)} 
+                        type="date" min={getMinimumTourDate()} required value={tourDate} onChange={(e) => setTourDate(e.target.value)} disabled={availabilityLoading}
                         className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ce9136] text-slate-900 outline-none" 
                       />
+                      {availabilityLoading && <p className="mt-1 text-xs text-slate-500">Checking available dates...</p>}
+                      {!availabilityLoading && tourDate && bookedDates.includes(tourDate) && <p className="mt-1 text-xs text-red-600">This date is already booked.</p>}
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
                     <input 
-                      type="tel" required value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} 
+                      type="tel" required value={contactNumber} onChange={(e) => setContactNumber(e.target.value)}
+                      pattern="(?:\+63|0)9[0-9]{9}" maxLength={13} title="Enter a Philippine mobile number, such as 09171234567 or +639171234567."
                       className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ce9136] text-slate-900 outline-none" 
-                      placeholder="+63 900 000 0000"
+                      placeholder="09171234567 or +639171234567"
                     />
-                  </div>
-
-                  {/* ADD-ONS SECTION */}
-                  <div className="pt-4 border-t border-slate-200 mt-6">
-                    <label className="block text-sm font-bold text-slate-800 mb-3">Optional Add-ons (Per Pax)</label>
-                    <div className="space-y-3">
-                      <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
-                        <input 
-                          type="checkbox" 
-                          checked={includeEtdf} 
-                          onChange={(e) => setIncludeEtdf(e.target.checked)} 
-                          className="mt-1 w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500" 
-                        />
-                        <div className="flex-1 text-sm">
-                          <p className="font-bold text-slate-900">El Nido ETDF</p>
-                          <p className="text-slate-500 text-xs mt-0.5">Eco Tourism Development Fee - Valid for 10 days for El Nido Tour Activities</p>
-                        </div>
-                        <span className="font-bold text-slate-700 whitespace-nowrap">+ ₱400</span>
-                      </label>
-
-                      <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
-                        <input 
-                          type="checkbox" 
-                          checked={includeLagoon} 
-                          onChange={(e) => setIncludeLagoon(e.target.checked)} 
-                          className="mt-1 w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500" 
-                        />
-                        <div className="flex-1 text-sm">
-                          <p className="font-bold text-slate-900">Lagoon Entrance Fee</p>
-                          <p className="text-slate-500 text-xs mt-0.5">Required entrance fee for El Nido Island Tour A</p>
-                        </div>
-                        <span className="font-bold text-slate-700 whitespace-nowrap">+ ₱200</span>
-                      </label>
-                    </div>
                   </div>
                 </form>
               </div>
@@ -354,7 +375,7 @@ export function ProductsSection() {
                 <button type="button" onClick={() => setSelectedTour(null)} className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 py-3 rounded-lg font-bold transition-colors">
                   Cancel
                 </button>
-                <button type="submit" form="booking-form" className="flex-1 bg-[#ce9136] hover:bg-[#b87d2b] text-white py-3 rounded-lg font-bold transition-colors shadow-sm">
+                <button type="submit" form="booking-form" disabled={availabilityLoading || bookedDates.includes(tourDate)} className="flex-1 bg-[#ce9136] hover:bg-[#b87d2b] text-white py-3 rounded-lg font-bold transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-60">
                   Confirm & Pay
                 </button>
               </div>
