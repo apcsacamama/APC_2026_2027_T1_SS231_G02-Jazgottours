@@ -127,9 +127,8 @@ export async function POST(request: Request) {
           show_description: true,
           show_line_items: true,
           
-          // --> CHANGED: Use the dynamic origin variable here instead of hardcoding localhost
           cancel_url: `${origin}/checkout`,
-          success_url: `${origin}/dashboard?success=true`,
+          success_url: `${origin}/api/verify-payment`,
           
           description: 'Jazgot Tour Services Booking',
           line_items: [
