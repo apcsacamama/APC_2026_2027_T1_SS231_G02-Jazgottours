@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function GET(request: Request) {
   try {
+    // Instantiate inside the handler so it only runs at runtime with active env vars
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const { data: pendingBookings, error: fetchError } = await supabase
       .from('bookings')
       .select('*')
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
       .update({ payment_status: 'paid' })
       .eq('id', booking.id);
 
-    // 2. Insert into invoices table (bypassing RLS safely with service role key)
+    // 2. Insert into invoices table
     const { error: insertError } = await supabaseAdmin
       .from('invoices')
       .insert([
