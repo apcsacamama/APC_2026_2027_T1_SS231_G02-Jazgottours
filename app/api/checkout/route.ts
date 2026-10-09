@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       !validTourDate ||
       body.tourDate < getMinimumBookingDate() ||
       typeof body.contactNumber !== 'string' ||
-      !/^\+639\d{9}$/.test(body.contactNumber)
+      !/^(?:\+639|09)\d{9}$/.test(body.contactNumber)
     ) {
       return NextResponse.json({ error: 'Booking details are invalid or the tour date is too soon' }, { status: 400 });
     }
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
       .from('bookings')
       .insert([
         {
-          user_id: body.userId && body.userId.trim() !== '' ? body.userId : null, 
+          user_id: null, // <--- Change this to null to let the customer checkout go through immediately
           tour_package: tourPackage.title,
           lead_guest_name: body.leadGuestName,
           pax: body.pax,
