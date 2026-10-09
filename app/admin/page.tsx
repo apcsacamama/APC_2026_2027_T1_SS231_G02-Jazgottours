@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { FiFileText, FiDollarSign, FiUsers, FiPlus, FiArrowRight } from 'react-icons/fi';
+import { FiFileText, FiUsers, FiArrowRight } from 'react-icons/fi';
 
 export default function AdminHomePage() {
   const recentQuotations = [
@@ -17,12 +17,6 @@ export default function AdminHomePage() {
           <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Welcome Back, Jasmine!</h1>
           <p className="text-sm text-gray-600">Here is the quick overview of your sales and marketing activities.</p>
         </div>
-        <Link
-          href="/admin/quotation"
-          className="bg-[#c89134] hover:bg-[#b07c29] text-white px-4 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition shadow-sm w-fit"
-        >
-          <FiPlus size={16} /> New Quotation
-        </Link>
       </div>
 
       {/* Stats Cards Row */}
@@ -50,8 +44,8 @@ export default function AdminHomePage() {
               View invoices <FiArrowRight size={12} />
             </span>
           </div>
-          <div className="p-3 bg-amber-50 text-[#c89134] rounded-xl border border-amber-200/60">
-            <FiDollarSign size={22} />
+          <div className="p-3 bg-amber-50 text-[#c89134] rounded-xl border border-amber-200/60 font-bold text-xl flex items-center justify-center w-[46px] h-[46px]">
+            ₱
           </div>
         </div>
 
