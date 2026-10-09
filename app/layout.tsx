@@ -5,6 +5,7 @@ import { Poppins } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth-provider"
+import { GeminiChatbot } from "@/components/gemini-chatbot"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 
@@ -36,7 +37,10 @@ export default function RootLayout({
     >
       <body className="bg-page">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <GeminiChatbot />
+          </AuthProvider>
         </ThemeProvider>
         <Toaster position="top-center" richColors />
       </body>
