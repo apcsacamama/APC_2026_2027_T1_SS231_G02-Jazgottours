@@ -164,12 +164,12 @@ export async function POST(request: Request) {
     const checkoutUrl = paymongoData.data.attributes.checkout_url;
     const checkoutId = paymongoData.data.id;
 
-    // 3. Save the pending booking to your new Supabase table
+    // 3. Save the pending booking to your Supabase table
     const { error: dbError } = await supabase
       .from('bookings')
       .insert([
         {
-          user_id: body.userId, 
+          user_id: body.userId && body.userId.trim() !== '' ? body.userId : null, 
           tour_package: tourPackage.title,
           lead_guest_name: body.leadGuestName,
           pax: body.pax,
@@ -177,7 +177,8 @@ export async function POST(request: Request) {
           contact_number: body.contactNumber,
           total_amount: totalAmount,
           paymongo_checkout_id: checkoutId,
-          payment_status: 'pending'
+          payment_status: 'pending',
+          status: 'Pending' // Matches the status column in your schema
         }
       ]);
 
