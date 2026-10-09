@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize a secure server-side Supabase client with the service role key
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  {
+    auth: {
+      persistSession: false,
+    },
+  }
+);
 
 function getMinimumBookingDate() {
   const today = new Intl.DateTimeFormat('en-CA', {
@@ -19,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Package id is required' }, { status: 400 });
   }
 
-  const { data: tourPackage, error: packageError } = await supabase
+  const { data: tourPackage, error: packageError } = await supabaseAdmin
     .from('packages')
     .select('title')
     .eq('id', packageId)
@@ -29,7 +40,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Tour package was not found' }, { status: 404 });
   }
 
-  const { data: bookings, error } = await supabase
+  const { data: bookings, error } = await supabaseAdmin
     .from('bookings')
     .select('tour_date')
     .eq('tour_package', tourPackage.title)
@@ -69,7 +80,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Booking details are invalid or the tour date is too soon' }, { status: 400 });
     }
 
-    const { data: tourPackage, error: packageError } = await supabase
+    const { data: tourPackage, error: packageError } = await supabaseAdmin
       .from('packages')
       .select('title, price')
       .eq('id', body.packageId)
@@ -85,7 +96,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Booking amount does not match the selected package' }, { status: 400 });
     }
 
-    const { data: existingBookings, error: availabilityError } = await supabase
+    const { data: existingBookings, error: availabilityError } = await supabaseAdmin
       .from('bookings')
       .select('id')
       .eq('tour_package', tourPackage.title)
@@ -134,8 +145,8 @@ export async function POST(request: Request) {
           line_items: [
             {
               currency: 'PHP',
-                  amount: unitPrice * 100,
-                  name: tourPackage.title,
+              amount: unitPrice * 100,
+              name: tourPackage.title,
               quantity: body.pax
             }
           ],
@@ -164,8 +175,8 @@ export async function POST(request: Request) {
     const checkoutUrl = paymongoData.data.attributes.checkout_url;
     const checkoutId = paymongoData.data.id;
 
-    // 3. Save the pending booking to your Supabase table
-    const { error: dbError } = await supabase
+    // 3. Save the pending booking using supabaseAdmin to securely bypass RLS restrictions
+    const { error: dbError } = await supabaseAdmin
       .from('bookings')
       .insert([
         {
@@ -178,7 +189,7 @@ export async function POST(request: Request) {
           total_amount: totalAmount,
           paymongo_checkout_id: checkoutId,
           payment_status: 'pending',
-          status: 'Pending' // Matches the status column in your schema
+          status: 'Pending'
         }
       ]);
 
