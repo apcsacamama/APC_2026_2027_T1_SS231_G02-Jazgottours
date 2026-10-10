@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 }
 
 const details = [
-  { icon: MapPin, label: "Address", value: "Corong-Corong, El Nido, Palawan, Philippines" },
-  { icon: Phone, label: "Phone", value: "+63 912 345 6789" },
+  { icon: MapPin, label: "Address", value: "The King's City, Paranaque, Parañaque, 1700 Metro Manila" },
+  { icon: Phone, label: "Phone", value: "+63 918 934 5403" },
   { icon: Mail, label: "Email", value: "hello@jazgottours.com" },
   { icon: Clock, label: "Hours", value: "Daily, 6:00 AM - 8:00 PM" },
 ]
