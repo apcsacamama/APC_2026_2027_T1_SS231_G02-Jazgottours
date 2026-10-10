@@ -1,6 +1,6 @@
 import Image from "next/image"
 import type { Metadata } from "next"
-import { Compass, HeartHandshake, ShieldCheck } from "lucide-react"
+import { User, HeartHandshake, ShieldCheck } from "lucide-react"
 
 import { SiteShell } from "@/components/site-shell"
 
@@ -12,19 +12,19 @@ export const metadata: Metadata = {
 
 const values = [
   {
-    icon: Compass,
-    title: "Local Expertise",
-    body: "Born and raised in Palawan, our guides know every hidden lagoon, cave, and secret beach around El Nido.",
+    icon: User,
+    title: "For Our Clients",
+    body: "To enjoy the beauty of nature, understand the history of the place as well as the relaxation they want to achieve, relieve stress/anxiety, and take a moment for a lifetime to remember their dream destinations.",
   },
   {
     icon: ShieldCheck,
-    title: "Safety First",
-    body: "Well-maintained boats, certified guides, and complete safety gear on every tour we operate.",
+    title: "For Co-Tour Operators/Companies",
+    body: "To share one goal to uplift the tourism industry of our country and other countries — and to help the economy as a way to be shock-proof in an economic recession.",
   },
   {
     icon: HeartHandshake,
-    title: "Genuine Hospitality",
-    body: "We treat every guest like family, crafting personal experiences that turn trips into lasting memories.",
+    title: "For Future Tourism Professionals",
+    body: "To help graduating students of BS in Tourism Management grasp the quality of being a Travel Agent — teaching professional ethics and instilling honesty and love for the job.",
   },
 ]
 
@@ -46,7 +46,7 @@ export default function AboutPage() {
             About Us
           </h1>
           <p className="mt-2 max-w-lg text-pretty text-white/90 drop-shadow">
-            Your trusted local partner for unforgettable El Nido adventures.
+            Let's have a break from our busy schedule, and unwind once in a while, enjoy life and recharge!
           </p>
         </div>
       </section>
