@@ -48,6 +48,15 @@ export async function updatePackage(id: number, formData: FormData) {
   revalidatePath('/')
 }
 
+export async function updatePackageOriginalPrice(id: number, original_price: number) {
+  const { error } = await supabase.from('packages').update({ original_price }).eq('id', id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/')
+  revalidatePath('/admin/commisions')
+  revalidatePath('/admin/products')
+}
+
 export async function deletePackage(id: number) {
   const { error } = await supabase.from('packages').delete().eq('id', id)
   if (error) throw new Error(error.message)

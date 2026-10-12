@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { FiHome, FiPackage, FiCalendar, FiFileText, FiUsers, FiLogOut } from 'react-icons/fi';
+import { FiHome, FiPackage, FiCalendar, FiFileText, FiUsers, FiLogOut, FiTrendingUp } from 'react-icons/fi';
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/logo';
 
@@ -127,6 +127,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 ₱
               </div> 
               <span className="font-semibold tracking-wide">Invoices</span>
+            </Link>
+
+            <Link 
+              href="/admin/commisions" 
+              className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all text-slate-700 hover:text-slate-950 bg-white/50 hover:bg-white/80 active:scale-[0.98] border border-white/60 hover:border-[#c29d6d]/60 shadow-[0_2px_12px_rgb(150,100,30,0.04)] group"
+            >
+              <div className="p-2 rounded-xl bg-gradient-to-br from-[#dfa241] to-[#bf7b20] text-white group-hover:scale-105 transition-all shadow-xs">
+                <FiTrendingUp size={16} />
+              </div> 
+              <span className="font-semibold tracking-wide">Commissions</span>
             </Link>
 
             <Link 

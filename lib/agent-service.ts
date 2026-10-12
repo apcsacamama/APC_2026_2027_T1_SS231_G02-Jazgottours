@@ -249,7 +249,19 @@ export async function createAgentBooking(params: {
   const updated = [newBooking, ...current];
   saveStoredAgentBookings(updated);
 
-  // 2. Sync to Supabase bookings table so it reflects everywhere
+  // 2. Add notification for the admin
+  addAdminCommissionNotification({
+    type: 'booking_created',
+    title: 'New Agent Booking Received',
+    message: `Agent ${agent.name} submitted booking ${id} for client ${params.client_name} (₱${totalAmount.toLocaleString()} total). Awaiting payment confirmation.`,
+    booking_id: id,
+    client_name: params.client_name,
+    agent_name: agent.name,
+    tour_package: params.tour_package,
+    commission_earned: adminCommission,
+  });
+
+  // 3. Sync to Supabase bookings table so it reflects everywhere
   try {
     await supabase.from('bookings').insert([
       {
@@ -271,8 +283,107 @@ export async function createAgentBooking(params: {
   return newBooking;
 }
 
+export interface AdminCommissionNotification {
+  id: string;
+  type: 'booking_created' | 'booking_confirmed';
+  title: string;
+  message: string;
+  booking_id: string;
+  client_name: string;
+  agent_name?: string;
+  tour_package: string;
+  commission_earned: number;
+  created_at: string;
+}
+
+const STORAGE_KEY_NOTIFICATIONS = 'jazgot_admin_commission_notifications';
+
+export function getAdminCommissionNotifications(): AdminCommissionNotification[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+  if (!raw) {
+    const initial: AdminCommissionNotification[] = [
+      {
+        id: 'notif-1',
+        type: 'booking_confirmed',
+        title: 'Commission Generated — ₱300',
+        message: 'Booking AB-2026-002 paid & confirmed! You generated ₱300 in commission from Agent Maria Ramos (Client: Liam Johnson | Tour A with Lunch).',
+        booking_id: 'AB-2026-002',
+        client_name: 'Liam Johnson',
+        agent_name: 'Maria Ramos',
+        tour_package: 'Tour A with Lunch',
+        commission_earned: 300,
+        created_at: '2026-10-10T09:15:00Z'
+      },
+      {
+        id: 'notif-2',
+        type: 'booking_confirmed',
+        title: 'Commission Generated — ₱675',
+        message: 'Booking AB-2026-003 paid & confirmed! You generated ₱675 in commission from Agent Carlos Mendoza (Client: Chloe Zhang | Coron Island Escape).',
+        booking_id: 'AB-2026-003',
+        client_name: 'Chloe Zhang',
+        agent_name: 'Carlos Mendoza',
+        tour_package: 'Coron Island Escape',
+        commission_earned: 675,
+        created_at: '2026-10-09T16:45:00Z'
+      },
+      {
+        id: 'notif-3',
+        type: 'booking_created',
+        title: 'New Agent Booking Received',
+        message: 'Agent Carlos Mendoza submitted booking AB-2026-001 for client Sophia Taylor & Family (₱28,000 total). Awaiting confirmation.',
+        booking_id: 'AB-2026-001',
+        client_name: 'Sophia Taylor & Family',
+        agent_name: 'Carlos Mendoza',
+        tour_package: 'El Nido 4D3N Complete Island Adventure',
+        commission_earned: 1400,
+        created_at: '2026-10-11T14:30:00Z'
+      }
+    ];
+    localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(initial));
+    return initial;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function addAdminCommissionNotification(notif: Omit<AdminCommissionNotification, 'id' | 'created_at'>) {
+  if (typeof window === 'undefined') return;
+  const current = getAdminCommissionNotifications();
+  const newNotif: AdminCommissionNotification = {
+    ...notif,
+    id: `notif-${Date.now()}`,
+    created_at: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify([newNotif, ...current]));
+}
+
+export function dismissAdminCommissionNotification(id: string) {
+  if (typeof window === 'undefined') return;
+  const current = getAdminCommissionNotifications();
+  const updated = current.filter(n => n.id !== id);
+  localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
+}
+
 export function updateAgentBookingStatus(bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Cancelled') {
   const list = getStoredAgentBookings();
+  const booking = list.find((b) => b.id === bookingId);
   const updated = list.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b));
   saveStoredAgentBookings(updated);
+
+  if (newStatus === 'Confirmed' && booking) {
+    addAdminCommissionNotification({
+      type: 'booking_confirmed',
+      title: `Commission Generated — ₱${booking.admin_commission.toLocaleString()}`,
+      message: `Booking ${booking.id} paid & confirmed! You generated ₱${booking.admin_commission.toLocaleString()} in commission from Agent ${booking.agent_name} (Client: ${booking.client_name} | Tour: ${booking.tour_package}).`,
+      booking_id: booking.id,
+      client_name: booking.client_name,
+      agent_name: booking.agent_name,
+      tour_package: booking.tour_package,
+      commission_earned: booking.admin_commission,
+    });
+  }
 }
