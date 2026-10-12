@@ -13,25 +13,40 @@ import {
   FiPackage,
   FiUser
 } from 'react-icons/fi';
+import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
+  syncActiveAgentFromUser,
   getStoredAgentBookings, 
   AgentBooking, 
   AgentProfile 
 } from '@/lib/agent-service';
 
 export default function AgentDashboardPage() {
-  const [agent, setAgent] = useState<AgentProfile>(getActiveAgent());
+  const [agent, setAgent] = useState<AgentProfile>(() => getActiveAgent());
   const [bookings, setBookings] = useState<AgentBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const curAgent = getActiveAgent();
-    setAgent(curAgent);
-    const allBookings = getStoredAgentBookings();
-    const myBookings = allBookings.filter((b) => b.agent_email === curAgent.email || b.agent_id === curAgent.id);
-    setBookings(myBookings);
-    setLoading(false);
+    const loadData = async () => {
+      let curAgent = getActiveAgent();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        curAgent = syncActiveAgentFromUser(session.user);
+      }
+      setAgent(curAgent);
+
+      const allBookings = getStoredAgentBookings();
+      const myBookings = allBookings.filter((b) => 
+        b.agent_email?.toLowerCase() === curAgent.email?.toLowerCase() || 
+        b.agent_id === curAgent.id || 
+        b.agent_name?.toLowerCase() === curAgent.name?.toLowerCase()
+      );
+      setBookings(myBookings);
+      setLoading(false);
+    };
+
+    loadData();
   }, []);
 
   const totalBookings = bookings.length;
@@ -50,7 +65,7 @@ export default function AgentDashboardPage() {
               Agent Partner • {agent.code}
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">Welcome Back, {agent.name}!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1 capitalize">Welcome Back, {agent.name}!</h1>
           <p className="text-xs text-gray-600 mt-0.5">
             Book clients under your name, manage mark-up profits, and track Admin confirmations in real time.
           </p>
