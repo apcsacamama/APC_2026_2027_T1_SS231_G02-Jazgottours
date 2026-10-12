@@ -12,8 +12,10 @@ import {
   FiMapPin 
 } from 'react-icons/fi';
 import { getPackages } from '@/lib/actions/packages';
+import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
+  syncActiveAgentFromUser,
   getAgentMarkups, 
   saveAgentMarkup, 
   AgentProfile 
@@ -35,7 +37,7 @@ type TourPackage = {
 export default function AgentProductsPage() {
   const [packages, setPackages] = useState<TourPackage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [agent, setAgent] = useState<AgentProfile>(getActiveAgent());
+  const [agent, setAgent] = useState<AgentProfile>(() => getActiveAgent());
   const [markups, setMarkups] = useState<Record<string, number>>({});
 
   // Modal State for adjusting markup
@@ -44,15 +46,20 @@ export default function AgentProductsPage() {
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
-    const curAgent = getActiveAgent();
-    setAgent(curAgent);
-    setMarkups(getAgentMarkups(curAgent.email));
+    const init = async () => {
+      let curAgent = getActiveAgent();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        curAgent = syncActiveAgentFromUser(session.user);
+      }
+      setAgent(curAgent);
+      setMarkups(getAgentMarkups(curAgent.email));
 
-    getPackages()
-      .then((data) => {
-        if (data && data.length > 0) {
-          setPackages(data as TourPackage[]);
-        } else {
+      getPackages()
+        .then((data) => {
+          if (data && data.length > 0) {
+            setPackages(data as TourPackage[]);
+          } else {
           // Fallback packages if DB not seeded
           setPackages([
             {
@@ -88,6 +95,9 @@ export default function AgentProductsPage() {
       .finally(() => {
         setLoading(false);
       });
+    };
+
+    init();
   }, []);
 
   const openMarkupModal = (pkg: TourPackage) => {
