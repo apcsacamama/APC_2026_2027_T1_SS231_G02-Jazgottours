@@ -56,10 +56,7 @@ export default function BookingsPage() {
       const email = data?.session?.user?.email || null;
       setCurrentUserEmail(email);
 
-      const role = data?.session?.user?.user_metadata?.role || (typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_role') : null);
-      
-      // Grant access to both admin and staff roles
-      if (role === 'admin' || role === 'staff' || email === 'admin@jazgottours.com' || email?.includes('staff')) {
+      if (email === 'admin@jazgottours.com') {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);
@@ -193,7 +190,7 @@ export default function BookingsPage() {
         </div>
         <h1 className="text-xl font-bold text-slate-900">Restricted Access Area</h1>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          Bookings management is reserved for administrators and authorized staff members. You are currently logged in as <span className="font-semibold text-slate-700">{currentUserEmail || 'Guest'}</span>.
+          Bookings management is strictly reserved for the primary owner (<span className="font-semibold text-slate-700">admin@jazgottours.com</span>). You are currently logged in as <span className="font-semibold text-slate-700">{currentUserEmail || 'Guest'}</span>.
         </p>
       </div>
     );

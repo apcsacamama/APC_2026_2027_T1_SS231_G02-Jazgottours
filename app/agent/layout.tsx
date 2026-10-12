@@ -9,72 +9,40 @@ import {
   FiPlusCircle, 
   FiCalendar, 
   FiFileText, 
-  FiLogOut 
+  FiLogOut, 
+  FiUser, 
+  FiShield, 
+  FiDollarSign 
 } from 'react-icons/fi';
 import { Logo } from '@/components/logo';
-import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
-  syncActiveAgentFromUser, 
+  setActiveAgent, 
+  REGISTERED_AGENTS, 
   AgentProfile 
 } from '@/lib/agent-service';
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
-  const [activeAgent, setActiveAgentState] = useState<AgentProfile>(() => getActiveAgent());
-  const [loading, setLoading] = useState(true);
+  const [activeAgent, setActiveAgentState] = useState<AgentProfile>(REGISTERED_AGENTS[0]);
+  const [isSwitching, setIsSwitching] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const checkSessionAndSync = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/admin/login');
-        return;
-      }
-      if (session.user) {
-        const profile = syncActiveAgentFromUser(session.user);
-        setActiveAgentState(profile);
-      } else {
-        setActiveAgentState(getActiveAgent());
-      }
-      setLoading(false);
-    };
+    setActiveAgentState(getActiveAgent());
+  }, []);
 
-    checkSessionAndSync();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        router.push('/admin/login');
-      } else if (session?.user) {
-        const profile = syncActiveAgentFromUser(session.user);
-        setActiveAgentState(profile);
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [router]);
-
-  const handleLogout = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('jazgot_user_role');
-      localStorage.removeItem('jazgot_user_first_name');
-      localStorage.removeItem('jazgot_user_email');
-      localStorage.removeItem('jazgot_active_agent');
-    }
-    await supabase.auth.signOut();
-    router.push('/admin/login');
+  const handleAgentChange = (agent: AgentProfile) => {
+    setActiveAgent(agent);
+    setActiveAgentState(agent);
+    setIsSwitching(false);
+    // Refresh current route to reload markups
+    router.refresh();
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#f4f1ea]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#dfa241]"></div>
-      </div>
-    );
-  }
+  const handleLogout = () => {
+    router.push('/admin/login');
+  };
 
   return (
     <div className="flex h-screen bg-[#f4f1ea] font-sans antialiased text-slate-800 overflow-hidden">
@@ -175,23 +143,57 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Agent Profile & Exit Actions */}
-        <div className="p-4 border-t border-[#c29d6d]/30 bg-white/30 backdrop-blur-md relative z-10 space-y-3">
-          {/* Active Logged-in Agent Profile Card */}
-          <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/70 border border-white/80 shadow-xs">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#dfa241] to-[#b8731b] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 uppercase">
-              {activeAgent.name.charAt(0)}
-            </div>
-            <div className="text-left truncate">
-              <p className="font-bold text-slate-900 text-xs truncate capitalize">{activeAgent.name}</p>
-              <p className="text-[10px] text-slate-500 truncate">{activeAgent.email}</p>
-            </div>
+        <div className="p-4 border-t border-[#c29d6d]/30 bg-white/30 backdrop-blur-md relative z-10 space-y-2">
+          {/* Quick Switch Agent button for reviewer ease */}
+          <div className="relative">
+            <button
+              onClick={() => setIsSwitching(!isSwitching)}
+              className="w-full flex items-center justify-between p-2 rounded-xl bg-white/60 hover:bg-white/90 border border-white text-xs transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px]">
+                  {activeAgent.name.charAt(0)}
+                </div>
+                <div className="text-left truncate">
+                  <p className="font-bold text-slate-900 truncate">{activeAgent.name}</p>
+                  <p className="text-[10px] text-slate-500">Active Partner</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-amber-800">Switch ▾</span>
+            </button>
+
+            {isSwitching && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-xl border border-amber-200 p-2 space-y-1 z-50">
+                <p className="text-[10px] uppercase font-bold text-slate-400 px-2 py-1">Select Active Agent:</p>
+                {REGISTERED_AGENTS.map((agt) => (
+                  <button
+                    key={agt.id}
+                    onClick={() => handleAgentChange(agt)}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer ${
+                      activeAgent.id === agt.id ? 'bg-amber-100 font-bold text-amber-900' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <span>{agt.name}</span>
+                    <span className="text-[10px] text-slate-400">{agt.code}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Quick link to /admin */}
+          <Link
+            href="/admin"
+            className="flex items-center justify-center gap-2 w-full py-2 bg-amber-100 hover:bg-amber-200 rounded-xl text-[11px] font-bold text-amber-900 transition border border-amber-300/60"
+          >
+            <FiShield size={13} /> Go to Admin Workspace
+          </Link>
 
           <button 
             onClick={handleLogout}
             className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#3d2e1b] hover:bg-[#261d11] active:scale-[0.98] rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all text-amber-100 shadow-sm cursor-pointer"
           >
-            <FiLogOut size={13} /> Sign Out
+            <FiLogOut size={13} /> Log Out
           </button>
         </div>
       </aside>
@@ -203,7 +205,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <div>
               <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
-                Tour Agent Workspace
+                Authorized Tour Agent Workspace
               </span>
               <span className="hidden sm:inline-block ml-2 text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 5% Admin Commission Synced
@@ -221,10 +223,10 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             </Link>
 
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-slate-800 capitalize">{activeAgent.name}</p>
+              <p className="text-xs font-bold text-slate-800">{activeAgent.name}</p>
               <p className="text-[10px] text-slate-400">{activeAgent.email}</p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#dfa241] to-[#b8731b] text-white flex items-center justify-center font-bold text-xs shadow-xs uppercase">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#dfa241] to-[#b8731b] text-white flex items-center justify-center font-bold text-xs shadow-xs">
               {activeAgent.name.charAt(0)}
             </div>
           </div>

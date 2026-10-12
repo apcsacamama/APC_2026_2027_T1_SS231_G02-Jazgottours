@@ -12,17 +12,15 @@ import {
   FiPrinter,
   FiShare2
 } from 'react-icons/fi';
-import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
-  syncActiveAgentFromUser,
   getAgentMarkups, 
   AgentProfile 
 } from '@/lib/agent-service';
 import { getPackages } from '@/lib/actions/packages';
 
 export default function AgentQuotationPage() {
-  const [agent, setAgent] = useState<AgentProfile>(() => getActiveAgent());
+  const [agent, setAgent] = useState<AgentProfile>(getActiveAgent());
   const [packages, setPackages] = useState<any[]>([]);
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -37,32 +35,24 @@ export default function AgentQuotationPage() {
   const [quoteGenerated, setQuoteGenerated] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      let curAgent = getActiveAgent();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        curAgent = syncActiveAgentFromUser(session.user);
+    const curAgent = getActiveAgent();
+    setAgent(curAgent);
+    const mks = getAgentMarkups(curAgent.email);
+
+    getPackages().then((data) => {
+      if (data && data.length > 0) {
+        setPackages(data);
+        setSelectedTour(data[0]);
+        setMarkupPerPax(mks[String(data[0].id)] ?? curAgent.defaultMarkup ?? 500);
+      } else {
+        const fb = [
+          { id: 1, title: 'El Nido 4D3N Complete Island Adventure', price: 6500 },
+          { id: 2, title: 'Tour A with Buffet Lunch', price: 2400 }
+        ];
+        setPackages(fb);
+        setSelectedTour(fb[0]);
       }
-      setAgent(curAgent);
-      const mks = getAgentMarkups(curAgent.email);
-
-      getPackages().then((data) => {
-        if (data && data.length > 0) {
-          setPackages(data);
-          setSelectedTour(data[0]);
-          setMarkupPerPax(mks[String(data[0].id)] ?? curAgent.defaultMarkup ?? 500);
-        } else {
-          const fb = [
-            { id: 1, title: 'El Nido 4D3N Complete Island Adventure', price: 6500 },
-            { id: 2, title: 'Tour A with Buffet Lunch', price: 2400 }
-          ];
-          setPackages(fb);
-          setSelectedTour(fb[0]);
-        }
-      });
-    };
-
-    init();
+    });
   }, []);
 
   const basePrice = Number(selectedTour?.price || 5000);

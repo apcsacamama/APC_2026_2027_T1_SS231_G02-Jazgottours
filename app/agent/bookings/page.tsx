@@ -15,40 +15,26 @@ import {
   FiTrendingUp,
   FiShield
 } from 'react-icons/fi';
-import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
-  syncActiveAgentFromUser,
   getStoredAgentBookings, 
   AgentBooking, 
   AgentProfile 
 } from '@/lib/agent-service';
 
 export default function AgentBookingsPage() {
-  const [agent, setAgent] = useState<AgentProfile>(() => getActiveAgent());
+  const [agent, setAgent] = useState<AgentProfile>(getActiveAgent());
   const [bookings, setBookings] = useState<AgentBooking[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState<AgentBooking | null>(null);
 
   useEffect(() => {
-    const init = async () => {
-      let curAgent = getActiveAgent();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        curAgent = syncActiveAgentFromUser(session.user);
-      }
-      setAgent(curAgent);
-      const all = getStoredAgentBookings();
-      const myBookings = all.filter((b) => 
-        b.agent_email?.toLowerCase() === curAgent.email?.toLowerCase() || 
-        b.agent_id === curAgent.id || 
-        b.agent_name?.toLowerCase() === curAgent.name?.toLowerCase()
-      );
-      setBookings(myBookings);
-    };
-
-    init();
+    const curAgent = getActiveAgent();
+    setAgent(curAgent);
+    const all = getStoredAgentBookings();
+    const myBookings = all.filter((b) => b.agent_email === curAgent.email || b.agent_id === curAgent.id);
+    setBookings(myBookings);
   }, []);
 
   const filtered = bookings.filter((b) => {
