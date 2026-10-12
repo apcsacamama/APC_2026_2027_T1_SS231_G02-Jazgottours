@@ -16,8 +16,10 @@ import {
   FiArrowRight
 } from 'react-icons/fi';
 import { getPackages } from '@/lib/actions/packages';
+import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
+  syncActiveAgentFromUser,
   getAgentMarkups, 
   createAgentBooking, 
   AgentProfile 
@@ -25,7 +27,7 @@ import {
 
 export default function AgentBookPage() {
   const router = useRouter();
-  const [agent, setAgent] = useState<AgentProfile>(getActiveAgent());
+  const [agent, setAgent] = useState<AgentProfile>(() => getActiveAgent());
   const [packages, setPackages] = useState<any[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
 
@@ -47,34 +49,40 @@ export default function AgentBookPage() {
   const [successBooking, setSuccessBooking] = useState<any | null>(null);
 
   useEffect(() => {
-    const curAgent = getActiveAgent();
-    setAgent(curAgent);
-    const markups = getAgentMarkups(curAgent.email);
+    const init = async () => {
+      let curAgent = getActiveAgent();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        curAgent = syncActiveAgentFromUser(session.user);
+      }
+      setAgent(curAgent);
+      const markups = getAgentMarkups(curAgent.email);
 
-    getPackages()
-      .then((data) => {
-        if (data && data.length > 0) {
-          setPackages(data);
-          setSelectedPkgId(data[0].id);
-          const defaultMk = markups[String(data[0].id)] ?? curAgent.defaultMarkup ?? 500;
-          setMarkupOverride(defaultMk);
-        } else {
-          const fallback = [
-            { id: 1, title: 'El Nido 4D3N Complete Island Adventure', price: 6500 },
-            { id: 2, title: 'Tour A with Buffet Lunch', price: 2400 },
-            { id: 3, title: 'Coron Island Escape Day Tour', price: 4000 }
-          ];
-          setPackages(fallback);
-          setSelectedPkgId(fallback[0].id);
-          setMarkupOverride(curAgent.defaultMarkup || 500);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load packages:', err);
-      })
-      .finally(() => {
-        setLoadingPackages(false);
-      });
+      getPackages()
+        .then((data) => {
+          if (data && data.length > 0) {
+            setPackages(data);
+            setSelectedPkgId(data[0].id);
+            const defaultMk = markups[String(data[0].id)] ?? curAgent.defaultMarkup ?? 500;
+            setMarkupOverride(defaultMk);
+          } else {
+            const fallback = [
+              { id: 1, title: 'El Nido 4D3N Complete Island Adventure', price: 6500 },
+              { id: 2, title: 'Tour A with Buffet Lunch', price: 2400 },
+              { id: 3, title: 'Coron Island Escape Day Tour', price: 4000 }
+            ];
+            setPackages(fallback);
+            setSelectedPkgId(fallback[0].id);
+            setMarkupOverride(curAgent.defaultMarkup || 500);
+          }
+          setLoadingPackages(false);
+        })
+        .catch(() => {
+          setLoadingPackages(false);
+        });
+    };
+
+    init();
   }, []);
 
   const selectedTour = packages.find((p) => String(p.id) === String(selectedPkgId)) || packages[0];
