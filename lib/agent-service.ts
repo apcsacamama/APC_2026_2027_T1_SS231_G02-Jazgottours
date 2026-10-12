@@ -133,44 +133,6 @@ const STORAGE_KEY_MARKUPS = 'jazgot_agent_markups';
 const STORAGE_KEY_ACTIVE_AGENT = 'jazgot_active_agent';
 const STORAGE_KEY_USER_ROLE = 'jazgot_user_role';
 
-export function formatFirstName(input?: string | null): string {
-  if (!input) return 'Agent';
-  const trimmed = input.trim();
-  if (trimmed.includes('@')) {
-    const username = trimmed.split('@')[0];
-    const firstChunk = username.split(/[._-]/)[0];
-    return firstChunk ? firstChunk.charAt(0).toUpperCase() + firstChunk.slice(1).toLowerCase() : 'Agent';
-  }
-  const firstWord = trimmed.split(' ')[0];
-  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
-}
-
-export function syncActiveAgentFromUser(user: any): AgentProfile {
-  if (!user) return getActiveAgent();
-  const rawName = user.user_metadata?.given_name || 
-                  user.user_metadata?.first_name || 
-                  user.user_metadata?.full_name || 
-                  user.user_metadata?.name || 
-                  user.email;
-  const firstName = formatFirstName(rawName);
-  const email = user.email || `${firstName.toLowerCase()}@jazgottours.com`;
-
-  const profile: AgentProfile = {
-    id: user.id || `ag-${firstName.toLowerCase()}`,
-    name: firstName,
-    email: email,
-    code: `JAZ-AGT-${firstName.slice(0, 3).toUpperCase()}`,
-    defaultMarkup: 500
-  };
-
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('jazgot_user_first_name', firstName);
-    localStorage.setItem('jazgot_user_email', email);
-    localStorage.setItem(STORAGE_KEY_ACTIVE_AGENT, JSON.stringify(profile));
-  }
-  return profile;
-}
-
 export function getActiveRole(): 'admin' | 'staff' | 'agent' {
   if (typeof window === 'undefined') return 'admin';
   const role = localStorage.getItem(STORAGE_KEY_USER_ROLE) as any;
@@ -183,58 +145,16 @@ export function setActiveRole(role: 'admin' | 'staff' | 'agent') {
 }
 
 export function getActiveAgent(): AgentProfile {
-  if (typeof window === 'undefined') {
-    return {
-      id: 'ag-agent',
-      name: 'Agent',
-      email: 'agent@jazgottours.com',
-      code: 'JAZ-AGT',
-      defaultMarkup: 500
-    };
-  }
-
-  const storedFirstName = localStorage.getItem('jazgot_user_first_name');
-  const storedEmail = localStorage.getItem('jazgot_user_email');
+  if (typeof window === 'undefined') return REGISTERED_AGENTS[0];
   const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_AGENT);
-
   if (saved) {
     try {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.name) {
-        // If Carlos Mendoza is found but user logged in as someone else or default needs refreshing:
-        if (storedFirstName && (parsed.name === 'Carlos Mendoza' || parsed.name !== storedFirstName)) {
-          parsed.name = storedFirstName;
-          parsed.code = `JAZ-AGT-${storedFirstName.slice(0, 3).toUpperCase()}`;
-          if (storedEmail) parsed.email = storedEmail;
-        } else if (parsed.name === 'Carlos Mendoza' && !storedFirstName) {
-          // Replace hardcoded default name if not deliberately set
-          parsed.name = 'Agent';
-        }
-        return parsed;
-      }
+      return JSON.parse(saved);
     } catch {
       // fallback
     }
   }
-
-  if (storedFirstName || storedEmail) {
-    const name = storedFirstName || formatFirstName(storedEmail);
-    return {
-      id: `ag-${name.toLowerCase()}`,
-      name: name,
-      email: storedEmail || `${name.toLowerCase()}@jazgottours.com`,
-      code: `JAZ-AGT-${name.slice(0, 3).toUpperCase()}`,
-      defaultMarkup: 500
-    };
-  }
-
-  return {
-    id: 'ag-agent',
-    name: 'Agent',
-    email: 'agent@jazgottours.com',
-    code: 'JAZ-AGT',
-    defaultMarkup: 500
-  };
+  return REGISTERED_AGENTS[0];
 }
 
 export function setActiveAgent(agent: AgentProfile) {
