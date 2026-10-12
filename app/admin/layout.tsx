@@ -20,6 +20,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/logo';
 import { formatFirstName } from '@/lib/agent-service';
+import AdminLogin from './login/page';
 
 type Role = 'admin' | 'staff' | 'agent';
 
@@ -72,7 +73,7 @@ const NAV_ITEMS: NavItem[] = [
     title: 'Users',
     href: '/admin/clients',
     icon: FiUsers,
-    allowedRoles: ['admin', 'staff'],
+    allowedRoles: ['admin'], // Admin exclusive
   },
 ];
 
@@ -87,21 +88,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      const localEmail = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_email') : null;
+      const localRole = typeof window !== 'undefined' ? (localStorage.getItem('jazgot_user_role') as Role) : null;
+      const localName = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_first_name') : null;
 
-      // If no session and not on the login page, redirect to login
-      if (!session && pathname !== '/admin/login') {
-        router.push('/admin/login');
+      // If no session and no stored credentials, user is unauthenticated
+      if (!session && !localEmail) {
+        setUserEmail(null);
+        setLoading(false);
         return;
       }
 
-      if (session?.user?.email) {
-        const email = session.user.email;
+      const email = session?.user?.email || localEmail;
+      if (email) {
         setUserEmail(email);
 
-        const nameMeta = session.user.user_metadata?.given_name ||
-                         session.user.user_metadata?.first_name ||
-                         session.user.user_metadata?.full_name ||
-                         session.user.user_metadata?.name;
+        const nameMeta = session?.user?.user_metadata?.given_name ||
+                         session?.user?.user_metadata?.first_name ||
+                         session?.user?.user_metadata?.full_name ||
+                         session?.user?.user_metadata?.name ||
+                         localName;
         const derivedFirst = formatFirstName(nameMeta || email);
         setUserName(derivedFirst);
 
@@ -109,11 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         // 1. user_metadata.role
         // 2. localStorage ('jazgot_user_role')
         // 3. Email conventions
-        let role = session.user.user_metadata?.role as Role | undefined;
-
-        if (!role && typeof window !== 'undefined') {
-          role = localStorage.getItem('jazgot_user_role') as Role | undefined;
-        }
+        let role = (session?.user?.user_metadata?.role as Role) || localRole || undefined;
 
         if (!role) {
           if (email.toLowerCase().includes('agent')) role = 'agent';
@@ -121,8 +123,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           else role = 'admin';
         }
 
-        // Agents do NOT need an admin dashboard - redirect immediately to their own dashboard
-        if (role === 'agent' && pathname !== '/admin/login') {
+        // Agents do NOT have access to admin dashboard - redirect immediately to their own dashboard
+        if (role === 'agent') {
           router.replace('/agent');
           return;
         }
@@ -138,11 +140,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        router.push('/admin/login');
+        setUserEmail(null);
       } else if (session?.user?.email) {
         const role = session.user.user_metadata?.role as Role | undefined;
         if (role) {
-          if (role === 'agent' && pathname !== '/admin/login') {
+          if (role === 'agent') {
             router.replace('/agent');
             return;
           }
@@ -159,10 +161,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('jazgot_user_role');
+      localStorage.removeItem('jazgot_user_first_name');
+      localStorage.removeItem('jazgot_user_email');
       localStorage.removeItem('jazgot_pending_role');
+      localStorage.removeItem('jazgot_active_agent');
     }
     await supabase.auth.signOut();
-    router.push('/');
+    setUserEmail(null);
+    setUserName(null);
+    window.location.href = '/admin';
   };
 
   // Show themed loading spinner
@@ -174,9 +181,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // If on login page, render children without sidebar/header
-  if (pathname === '/admin/login') {
-    return <>{children}</>;
+  // If unauthenticated, render the Login Page directly at /admin without dashboard chrome
+  if (!userEmail) {
+    return <AdminLogin />;
   }
 
   // Check if current route is allowed for the user's role
