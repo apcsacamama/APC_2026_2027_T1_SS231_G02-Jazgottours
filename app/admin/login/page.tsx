@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Logo } from '@/components/logo'
@@ -55,60 +55,115 @@ export default function AdminLogin() {
 
   const router = useRouter()
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedEmail = localStorage.getItem('jazgot_user_email')
+      const savedRole = localStorage.getItem('jazgot_user_role')
+      if (savedEmail) {
+        if (savedRole === 'agent') {
+          router.replace('/agent')
+        } else {
+          router.replace('/admin')
+        }
+      }
+    }
+  }, [router])
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
+    const cleanEmail = email.trim().toLowerCase()
+
     try {
+      let resolvedRole: Role = role
+      let resolvedName = firstNameInput
+      let authenticated = false
+
+      // 1. First attempt standard Supabase Auth
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password,
       })
 
-      if (signInError || !data.session) {
-        setError(signInError?.message ?? 'Sign in failed. Please check your credentials.')
-        setLoading(false)
-        return
-      }
+      if (!signInError && data?.session?.user) {
+        authenticated = true
+        const authUser = data.session.user
+        resolvedRole = (authUser.user_metadata?.role as Role) || role
+        resolvedName = formatFirstName(
+          firstNameInput ||
+          authUser.user_metadata?.given_name ||
+          authUser.user_metadata?.first_name ||
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          cleanEmail
+        )
 
-      const user = data.session.user
-      const firstName = formatFirstName(
-        firstNameInput ||
-        user.user_metadata?.given_name ||
-        user.user_metadata?.first_name ||
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        email
-      )
-
-      // Persist chosen role & user first name in user metadata & local storage
-      await supabase.auth.updateUser({ 
-        data: { 
-          role,
-          first_name: firstName,
-          name: firstName 
-        } 
-      })
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('jazgot_user_role', role)
-        localStorage.setItem('jazgot_user_first_name', firstName)
-        localStorage.setItem('jazgot_user_email', email)
-        const dynamicAgent = {
-          id: user.id || `ag-${firstName.toLowerCase()}`,
-          name: firstName,
-          email: email,
-          code: `JAZ-AGT-${firstName.slice(0, 3).toUpperCase()}`,
-          defaultMarkup: 500
-        }
-        localStorage.setItem('jazgot_active_agent', JSON.stringify(dynamicAgent))
-      }
-
-      if (role === 'agent') {
-        router.push('/agent')
+        // Keep auth metadata updated
+        await supabase.auth.updateUser({ 
+          data: { 
+            role: resolvedRole,
+            first_name: resolvedName,
+            name: resolvedName 
+          } 
+        })
       } else {
-        router.push('/admin')
+        // 2. Check public.user table for provisioned credentials
+        const { data: userRow } = await supabase
+          .from('user')
+          .select('*')
+          .eq('email', cleanEmail)
+          .eq('password', password)
+          .maybeSingle()
+
+        if (userRow) {
+          authenticated = true
+          resolvedRole = (userRow.role as Role) || role
+          resolvedName = formatFirstName(
+            firstNameInput ||
+            userRow.full_name ||
+            userRow.username ||
+            cleanEmail
+          )
+        } else {
+          setError(signInError?.message ?? 'Invalid email or password. Please try again.')
+          setLoading(false)
+          return
+        }
+      }
+
+      if (authenticated) {
+        // If the email domain explicitly dictates the role, prioritize it
+        if (cleanEmail.includes('@agent.jgt.com') || cleanEmail.includes('agent')) {
+          resolvedRole = 'agent'
+        } else if (cleanEmail.includes('@staff.jgt.com') || cleanEmail.includes('staff')) {
+          resolvedRole = 'staff'
+        }
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('jazgot_user_role', resolvedRole)
+          localStorage.setItem('jazgot_user_first_name', resolvedName)
+          localStorage.setItem('jazgot_user_email', cleanEmail)
+
+          if (resolvedRole === 'agent') {
+            const dynamicAgent = {
+              id: `ag-${resolvedName.toLowerCase()}`,
+              name: resolvedName,
+              email: cleanEmail,
+              code: `JAZ-AGT-${resolvedName.slice(0, 3).toUpperCase()}`,
+              defaultMarkup: 500
+            }
+            localStorage.setItem('jazgot_active_agent', JSON.stringify(dynamicAgent))
+          }
+        }
+
+        // Strict role-specific dashboard redirection
+        if (resolvedRole === 'agent') {
+          window.location.href = '/agent'
+        } else {
+          window.location.href = '/admin'
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'An unexpected error occurred.')
@@ -135,7 +190,7 @@ export default function AdminLogin() {
       const { error: oAuthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${redirectPath}`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${redirectPath}&selected_role=${role}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -291,7 +346,13 @@ export default function AdminLogin() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={`name@${role === 'agent' ? 'agency.com' : 'jazgottours.com'}`}
+                placeholder={
+                  role === 'agent' 
+                    ? 'rio@agent.jgt.com' 
+                    : role === 'staff' 
+                    ? 'rio@staff.jgt.com' 
+                    : 'admin@jazgottours.com'
+                }
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-500 transition-all bg-white"
               />
             </div>

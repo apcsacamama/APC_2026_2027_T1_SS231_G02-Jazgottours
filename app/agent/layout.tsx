@@ -28,11 +28,21 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const checkSessionAndSync = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/admin/login');
+      const localEmail = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_email') : null;
+      const localRole = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_role') : null;
+
+      if (!session && !localEmail) {
+        router.push('/admin');
         return;
       }
-      if (session.user) {
+
+      // Staff accounts can ONLY access the Staff/Admin dashboard
+      if (localRole === 'staff') {
+        router.replace('/admin');
+        return;
+      }
+
+      if (session?.user) {
         const profile = syncActiveAgentFromUser(session.user);
         setActiveAgentState(profile);
       } else {
@@ -45,7 +55,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        router.push('/admin/login');
+        router.push('/admin');
       } else if (session?.user) {
         const profile = syncActiveAgentFromUser(session.user);
         setActiveAgentState(profile);
@@ -65,7 +75,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
       localStorage.removeItem('jazgot_active_agent');
     }
     await supabase.auth.signOut();
-    router.push('/admin/login');
+    window.location.href = '/admin';
   };
 
   if (loading) {
