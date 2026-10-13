@@ -259,7 +259,7 @@ export default function BookingsPage() {
                 <th className="p-4">Client Name</th>
                 <th className="p-4">Tour Package</th>
                 <th className="p-4">Pax</th>
-                <th className="p-4">Date</th>
+                <th className="p-4">Date Paid</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>

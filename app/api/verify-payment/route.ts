@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     }
 
     const booking = pendingBookings[0];
-    const invoiceNumber = `INV-2026-${String(Math.floor(Math.random() * 900) + 100)}`;
+    const invoiceNumber = `JGTINV-2026-${String(Math.floor(Math.random() * 900) + 100)}`;
     const today = new Date().toISOString().split('T')[0];
 
     // 1. Update booking status using admin client

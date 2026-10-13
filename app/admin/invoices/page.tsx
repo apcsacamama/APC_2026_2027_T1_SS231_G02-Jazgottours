@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { jsPDF } from 'jspdf'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface InvoiceRecord {
   id: string
@@ -17,17 +18,22 @@ interface InvoiceRecord {
   tour_date?: string
 }
 
+const PAGE_SIZE = 15
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // Fetch real paid invoices from the Supabase 'invoices' table on load
+  // Fetch real paid invoices from Supabase ordered latest to oldest
   useEffect(() => {
     async function fetchInvoices() {
+      setLoading(true)
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
         .order('date_paid', { ascending: false })
+        .order('created_at', { ascending: false }) // Tiebreaker for invoices paid on the same day
 
       if (error) {
         console.error("Error fetching invoices:", error)
@@ -39,6 +45,11 @@ export default function InvoicesPage() {
 
     fetchInvoices()
   }, [])
+
+  // Pagination calculation
+  const totalPages = Math.ceil(invoices.length / PAGE_SIZE)
+  const startIndex = (currentPage - 1) * PAGE_SIZE
+  const paginatedInvoices = invoices.slice(startIndex, startIndex + PAGE_SIZE)
 
   // Export all visible invoices to CSV
   const handleExportCSV = () => {
@@ -136,7 +147,7 @@ export default function InvoicesPage() {
                 <td colSpan={6} className="p-6 text-center text-slate-500">No paid invoices found yet.</td>
               </tr>
             ) : (
-              invoices.map((invoice) => (
+              paginatedInvoices.map((invoice) => (
                 <tr key={invoice.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4 font-bold text-slate-900">{invoice.invoice_no}</td>
                   <td className="p-4 text-slate-700">{invoice.client_name}</td>
@@ -154,13 +165,50 @@ export default function InvoicesPage() {
                     >
                       View PDF
                     </button>
-                    <button className="text-slate-500 hover:text-slate-700 text-sm font-medium">Forward to Acctg</button>
+                    
                   </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+
+        {/* Pagination Bar */}
+        {!loading && invoices.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white">
+            <span className="text-xs text-slate-500">
+              Showing <span className="font-medium text-slate-700">{startIndex + 1}</span> to{' '}
+              <span className="font-medium text-slate-700">
+                {Math.min(startIndex + PAGE_SIZE, invoices.length)}
+              </span>{' '}
+              of <span className="font-medium text-slate-700">{invoices.length}</span> invoices
+            </span>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <span className="text-xs font-semibold px-2 text-slate-700">
+                Page {currentPage} of {totalPages || 1}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
