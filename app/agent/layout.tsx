@@ -32,12 +32,14 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
       const localRole = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_role') : null;
 
       if (!session && !localEmail) {
+        setLoading(false);
         router.push('/signin');
         return;
       }
 
       // Staff accounts can ONLY access the Staff/Admin dashboard
       if (localRole === 'staff') {
+        setLoading(false);
         router.replace('/admin');
         return;
       }

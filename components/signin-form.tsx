@@ -22,14 +22,17 @@ export function SignInForm() {
     const formData = new FormData(event.currentTarget)
     const email = String(formData.get("email")).trim().toLowerCase()
     const password = String(formData.get("password"))
-    const fullName = String(formData.get("name") ?? "")
+    const firstName = String(formData.get("first_name") ?? "").trim()
+    const lastName  = String(formData.get("last_name") ?? "").trim()
+    const phone     = String(formData.get("phone") ?? "").trim()
+    const fullName  = [firstName, lastName].filter(Boolean).join(" ")
 
     // ── Sign Up flow (client only) ──────────────────────────────────────────
     if (authMode === "signup") {
       const result = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: { data: { full_name: fullName, first_name: firstName, last_name: lastName, phone } },
       })
       setIsSubmitting(false)
       if (result.error) {
@@ -88,11 +91,11 @@ export function SignInForm() {
       return
     }
 
-    // Override role based on email conventions if still undetermined
+    // Override role based on specific portal email domains only
     if (resolvedRole === 'client') {
-      if (email.includes('@agent.jgt.com') || email.includes('agent')) resolvedRole = 'agent'
-      else if (email.includes('@staff.jgt.com') || email.includes('staff')) resolvedRole = 'staff'
-      else if (email === 'admin@jazgottours.com' || email.includes('admin')) resolvedRole = 'admin'
+      if (email.endsWith('@agent.jgt.com')) resolvedRole = 'agent'
+      else if (email.endsWith('@staff.jgt.com')) resolvedRole = 'staff'
+      else if (email === 'admin@jazgottours.com') resolvedRole = 'admin'
     }
 
     // Persist portal session data for admin/staff/agent layouts
@@ -146,9 +149,30 @@ export function SignInForm() {
       >
         <FieldGroup>
           {authMode === "signup" && (
+            <>
+              {/* Name row — side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel htmlFor="first_name">First Name</FieldLabel>
+                  <Input id="first_name" name="first_name" type="text" placeholder="Juan" required />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="last_name">Last Name</FieldLabel>
+                  <Input id="last_name" name="last_name" type="text" placeholder="Dela Cruz" required />
+                </Field>
+              </div>
+              <Field>
+                <FieldLabel htmlFor="phone">Phone Number</FieldLabel>
+                <Input id="phone" name="phone" type="tel" placeholder="+63 912 345 6789" required />
+              </Field>
+            </>
+          )}
+
+
+          {authMode === "signin" && (
             <Field>
-              <FieldLabel htmlFor="name">Full Name</FieldLabel>
-              <Input id="name" name="name" type="text" placeholder="Juan Dela Cruz" required />
+              <FieldLabel htmlFor="signin_name">Name</FieldLabel>
+              <Input id="signin_name" name="signin_name" type="text" placeholder="Your name" />
             </Field>
           )}
 

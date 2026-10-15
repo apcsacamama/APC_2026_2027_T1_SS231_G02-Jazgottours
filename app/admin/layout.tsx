@@ -93,6 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       // If no session and no stored credentials, user is unauthenticated — redirect to unified sign-in
       if (!session && !localEmail) {
+        setLoading(false);
         router.replace('/signin');
         return;
       }
