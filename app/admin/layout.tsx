@@ -20,7 +20,6 @@ import {
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/logo';
 import { formatFirstName } from '@/lib/agent-service';
-import AdminLogin from './login/page';
 
 type Role = 'admin' | 'staff' | 'agent';
 
@@ -92,10 +91,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const localRole = typeof window !== 'undefined' ? (localStorage.getItem('jazgot_user_role') as Role) : null;
       const localName = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_first_name') : null;
 
-      // If no session and no stored credentials, user is unauthenticated
+      // If no session and no stored credentials, user is unauthenticated — redirect to unified sign-in
       if (!session && !localEmail) {
-        setUserEmail(null);
         setLoading(false);
+        router.replace('/signin');
         return;
       }
 
@@ -169,7 +168,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     await supabase.auth.signOut();
     setUserEmail(null);
     setUserName(null);
-    window.location.href = '/admin';
+    window.location.href = '/signin';
   };
 
   // Show themed loading spinner
@@ -181,9 +180,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // If unauthenticated, render the Login Page directly at /admin without dashboard chrome
+  // If unauthenticated (shouldn't reach here due to redirect above, but as safety net)
   if (!userEmail) {
-    return <AdminLogin />;
+    return null;
   }
 
   // Check if current route is allowed for the user's role

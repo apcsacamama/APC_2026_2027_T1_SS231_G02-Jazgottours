@@ -84,5 +84,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/admin/login`)
+  return NextResponse.redirect(`${origin}/signin`)
 }
