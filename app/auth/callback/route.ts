@@ -45,12 +45,12 @@ export async function GET(request: Request) {
           .maybeSingle()
 
         let effectiveRole = dbUser?.role || selectedRole
-        if (userEmail === 'admin@jazgottours.com') {
-          effectiveRole = 'admin'
-        } else if (userEmail.endsWith('@jazgottours.com')) {
-          // Role already resolved from dbUser or selectedRole above;
-          // no further domain-based override needed.
-          effectiveRole = dbUser?.role || selectedRole
+        if (userEmail === 'admin@jazgottours.com' || (userEmail.endsWith('@jazgottours.com') && !userEmail.endsWith('@staff.jazgottours.com') && !userEmail.endsWith('@agent.jazgottours.com'))) {
+          effectiveRole = dbUser?.role || 'admin'
+        } else if (userEmail.endsWith('@agent.jazgottours.com')) {
+          effectiveRole = 'agent'
+        } else if (userEmail.endsWith('@staff.jazgottours.com')) {
+          effectiveRole = 'staff'
         }
 
         const fullName = dbUser?.full_name || 

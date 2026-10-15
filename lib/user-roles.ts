@@ -11,8 +11,8 @@ export interface UserAccount {
 }
 
 export const ROLE_DOMAINS: Record<AppRole, string> = {
-  staff: '@jazgottours.com',
-  agent: '@jazgottours.com',
+  staff: '@staff.jazgottours.com',
+  agent: '@agent.jazgottours.com',
   admin: '@jazgottours.com',
 };
 
@@ -39,8 +39,9 @@ export const ROLE_LABELS: Record<AppRole, { label: string; badge: string; descri
 
 /**
  * Automatically creates the recommended email according to the specified role.
- * e.g., username "rio" + role "staff" => "rio@jazgottours.com"
- * e.g., username "rio" + role "agent" => "rio@jazgottours.com"
+ * e.g., username "rio" + role "staff" => "rio@staff.jazgottours.com"
+ * e.g., username "rio" + role "agent" => "rio@agent.jazgottours.com"
+ * e.g., username "jasmine" + role "admin" => "jasmine@jazgottours.com"
  */
 export function generateDefaultEmail(username: string, role: AppRole): string {
   const cleanName = username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -70,13 +71,13 @@ export function resolveUserRole(
   if (!email) return 'staff';
   const cleanEmail = email.trim().toLowerCase();
 
-  // 3. All portal accounts use @jazgottours.com
-  //    Role is determined by stored DB/metadata role above.
-  //    If only email is available and it ends with @jazgottours.com,
-  //    default to 'staff' (safe fallback — layout will redirect agents).
-  if (cleanEmail.endsWith('@jazgottours.com')) {
-    return 'staff';
-  }
+  // 3. Subdomain-based role detection:
+  //    @agent.jazgottours.com  → agent
+  //    @staff.jazgottours.com  → staff
+  //    @jazgottours.com        → admin
+  if (cleanEmail.endsWith('@agent.jazgottours.com')) return 'agent';
+  if (cleanEmail.endsWith('@staff.jazgottours.com')) return 'staff';
+  if (cleanEmail.endsWith('@jazgottours.com'))        return 'admin';
 
   return 'staff';
 }

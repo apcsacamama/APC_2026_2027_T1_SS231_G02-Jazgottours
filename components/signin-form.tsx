@@ -25,11 +25,12 @@ export function SignInForm() {
 
     // ── Sign Up flow (clients only) ────────────────────────────────────────
     if (authMode === "signup") {
-      // Block portal domain from self-registering
-      if (email.endsWith("@jazgottours.com")) {
+      // Block portal domains from self-registering
+      const portalDomains = ['@jazgottours.com', '@staff.jazgottours.com', '@agent.jazgottours.com']
+      if (portalDomains.some(d => email.endsWith(d))) {
         setIsSubmitting(false)
         toast.error(
-          "Portal accounts (@jazgottours.com) cannot be self-registered. " +
+          "Portal accounts cannot be self-registered. " +
           "Please contact your administrator to have your account provisioned."
         )
         return
@@ -112,10 +113,11 @@ export function SignInForm() {
       return
     }
 
-    // For @jazgottours.com accounts: if role wasn't explicitly stored,
-    // treat as admin (safe default — layout will redirect agents accordingly)
-    if (resolvedRole === "client" && email.endsWith("@jazgottours.com")) {
-      resolvedRole = "admin"
+    // Detect portal role from email subdomain if not already resolved from metadata/DB
+    if (resolvedRole === "client") {
+      if (email.endsWith("@agent.jazgottours.com"))  resolvedRole = "agent"
+      else if (email.endsWith("@staff.jazgottours.com")) resolvedRole = "staff"
+      else if (email.endsWith("@jazgottours.com"))       resolvedRole = "admin"
     }
 
     // Persist portal session data for admin/staff/agent layouts

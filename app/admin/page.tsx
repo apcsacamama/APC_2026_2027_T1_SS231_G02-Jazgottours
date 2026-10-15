@@ -10,8 +10,30 @@ export default function AdminHomePage() {
   const [invoiceCount, setInvoiceCount] = useState(0);
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
+    // Resolve logged-in user's first name
+    const storedName = typeof window !== 'undefined'
+      ? localStorage.getItem('jazgot_user_first_name')
+      : null;
+
+    if (storedName) {
+      setUserName(storedName);
+    } else {
+      // Fallback: read from Supabase session metadata
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const meta = session?.user?.user_metadata;
+        const name =
+          meta?.given_name ||
+          meta?.first_name ||
+          (meta?.full_name ? meta.full_name.split(' ')[0] : null) ||
+          meta?.name ||
+          '';
+        if (name) setUserName(name);
+      });
+    }
+
     fetchDashboardData();
   }, []);
 
@@ -64,7 +86,9 @@ export default function AdminHomePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
           <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Owner & Sales Workspace</span>
-          <h1 className="text-2xl font-bold text-gray-900 mt-0.5">Welcome Back, Jasmine!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-0.5">
+            Welcome Back{userName ? `, ${userName}` : ''}!
+          </h1>
           <p className="text-sm text-gray-600">Here is the quick overview of your sales and marketing activities.</p>
         </div>
       </div>
