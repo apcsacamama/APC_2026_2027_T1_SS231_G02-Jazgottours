@@ -32,7 +32,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
       const localRole = typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_role') : null;
 
       if (!session && !localEmail) {
-        router.push('/admin');
+        router.push('/signin');
         return;
       }
 
@@ -55,7 +55,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        router.push('/admin');
+        router.push('/signin');
       } else if (session?.user) {
         const profile = syncActiveAgentFromUser(session.user);
         setActiveAgentState(profile);
@@ -75,7 +75,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
       localStorage.removeItem('jazgot_active_agent');
     }
     await supabase.auth.signOut();
-    window.location.href = '/admin';
+    window.location.href = '/signin';
   };
 
   if (loading) {
