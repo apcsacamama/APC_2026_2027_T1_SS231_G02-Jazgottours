@@ -59,7 +59,7 @@ export default function BookingsPage() {
       const role = data?.session?.user?.user_metadata?.role || (typeof window !== 'undefined' ? localStorage.getItem('jazgot_user_role') : null);
       
       // Grant access to both admin and staff roles
-      if (role === 'admin' || role === 'staff' || email === 'admin@jazgottours.com' || email?.includes('staff')) {
+      if (role === 'admin' || role === 'staff' || email === 'admin@jazgottours.com') {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);

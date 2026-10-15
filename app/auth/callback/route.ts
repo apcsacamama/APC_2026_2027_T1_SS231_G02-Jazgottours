@@ -47,10 +47,10 @@ export async function GET(request: Request) {
         let effectiveRole = dbUser?.role || selectedRole
         if (userEmail === 'admin@jazgottours.com') {
           effectiveRole = 'admin'
-        } else if (userEmail.includes('@agent.jgt.com') || userEmail.includes('agent')) {
-          effectiveRole = 'agent'
-        } else if (userEmail.includes('@staff.jgt.com') || userEmail.includes('staff')) {
-          effectiveRole = 'staff'
+        } else if (userEmail.endsWith('@jazgottours.com')) {
+          // Role already resolved from dbUser or selectedRole above;
+          // no further domain-based override needed.
+          effectiveRole = dbUser?.role || selectedRole
         }
 
         const fullName = dbUser?.full_name || 

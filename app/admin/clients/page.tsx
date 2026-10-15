@@ -329,7 +329,7 @@ export default function ClientsPage() {
           <div className="space-y-0.5">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Role Domain Conventions</h4>
             <p className="text-xs text-slate-600">
-              Accounts created for Staff default to <code className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold">@staff.jgt.com</code> (Operations Dashboard), and Agents default to <code className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold">@agent.jgt.com</code> (Tour Agent Portal). You can freely edit any email format.
+              Accounts created for Staff and Agents all use the <code className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold">@jazgottours.com</code> domain. The assigned role (Staff or Agent) determines which dashboard they can access.
             </p>
           </div>
         </div>
@@ -560,7 +560,7 @@ export default function ClientsPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-900">Staff</div>
-                        <div className="text-[10px] text-blue-700 font-mono font-semibold">@staff.jgt.com</div>
+                        <div className="text-[10px] text-blue-700 font-mono font-semibold">@jazgottours.com</div>
                       </div>
                     </div>
                     <div className="mt-2 text-[10px] text-slate-500">
@@ -584,7 +584,7 @@ export default function ClientsPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-900">Tour Agent</div>
-                        <div className="text-[10px] text-amber-700 font-mono font-semibold">@agent.jgt.com</div>
+                        <div className="text-[10px] text-amber-700 font-mono font-semibold">@jazgottours.com</div>
                       </div>
                     </div>
                     <div className="mt-2 text-[10px] text-slate-500">
@@ -622,7 +622,7 @@ export default function ClientsPage() {
                       onClick={handleResetEmailFormat}
                       className="text-[10px] text-amber-700 hover:text-amber-900 font-semibold underline cursor-pointer"
                     >
-                      Reset to default format (@{selectedRole}.jgt.com)
+                      Reset to default format (@jazgottours.com)
                     </button>
                   ) : (
                     <span className="text-[10px] text-slate-400 font-medium">Auto-formatted (editable)</span>

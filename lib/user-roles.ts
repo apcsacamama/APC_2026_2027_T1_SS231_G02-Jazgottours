@@ -11,8 +11,8 @@ export interface UserAccount {
 }
 
 export const ROLE_DOMAINS: Record<AppRole, string> = {
-  staff: '@staff.jgt.com',
-  agent: '@agent.jgt.com',
+  staff: '@jazgottours.com',
+  agent: '@jazgottours.com',
   admin: '@jazgottours.com',
 };
 
@@ -39,13 +39,13 @@ export const ROLE_LABELS: Record<AppRole, { label: string; badge: string; descri
 
 /**
  * Automatically creates the recommended email according to the specified role.
- * e.g., username "rio" + role "staff" => "rio@staff.jgt.com"
- * e.g., username "rio" + role "agent" => "rio@agent.jgt.com"
+ * e.g., username "rio" + role "staff" => "rio@jazgottours.com"
+ * e.g., username "rio" + role "agent" => "rio@jazgottours.com"
  */
 export function generateDefaultEmail(username: string, role: AppRole): string {
   const cleanName = username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
   const prefix = cleanName || 'username';
-  const domain = ROLE_DOMAINS[role] || '@staff.jgt.com';
+  const domain = ROLE_DOMAINS[role] || '@jazgottours.com';
   return `${prefix}${domain}`;
 }
 
@@ -70,19 +70,12 @@ export function resolveUserRole(
   if (!email) return 'staff';
   const cleanEmail = email.trim().toLowerCase();
 
-  // 3. Email domain conventions requested:
-  // e.g. rio@agent.jgt.com => agent
-  // e.g. rio@staff.jgt.com => staff
-  if (cleanEmail.endsWith('@agent.jgt.com') || cleanEmail.includes('@agent.') || cleanEmail.includes('.agent@')) {
-    return 'agent';
-  }
-
-  if (cleanEmail.endsWith('@staff.jgt.com') || cleanEmail.includes('@staff.') || cleanEmail.includes('.staff@')) {
+  // 3. All portal accounts use @jazgottours.com
+  //    Role is determined by stored DB/metadata role above.
+  //    If only email is available and it ends with @jazgottours.com,
+  //    default to 'staff' (safe fallback — layout will redirect agents).
+  if (cleanEmail.endsWith('@jazgottours.com')) {
     return 'staff';
-  }
-
-  if (cleanEmail === 'admin@jazgottours.com' || cleanEmail.startsWith('admin@')) {
-    return 'admin';
   }
 
   return 'staff';
