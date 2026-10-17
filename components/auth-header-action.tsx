@@ -27,6 +27,15 @@ export function AuthHeaderAction() {
   }
 
   async function handleSignOut() {
+    // Clear portal localStorage keys if present
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('jazgot_user_role')
+      localStorage.removeItem('jazgot_user_first_name')
+      localStorage.removeItem('jazgot_user_email')
+      localStorage.removeItem('jazgot_pending_role')
+      localStorage.removeItem('jazgot_active_agent')
+    }
+
     const { error } = await supabase.auth.signOut()
 
     if (error) {
