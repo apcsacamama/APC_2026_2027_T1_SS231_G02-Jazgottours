@@ -26,6 +26,19 @@ function getMinimumBookingDate() {
   return minimumDate.toISOString().slice(0, 10);
 }
 
+// Strips redundant +63, 63, or leading 0 so PayMongo's UI country code won't duplicate
+function formatPhoneForPayMongo(phone: string): string {
+  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  if (cleaned.startsWith('+63')) {
+    cleaned = cleaned.slice(3);
+  } else if (cleaned.startsWith('63')) {
+    cleaned = cleaned.slice(2);
+  } else if (cleaned.startsWith('0')) {
+    cleaned = cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 export async function GET(request: Request) {
   const packageId = new URL(request.url).searchParams.get('packageId');
   if (!packageId) {
@@ -117,7 +130,7 @@ export async function POST(request: Request) {
         attributes: {
           billing: {
             name: fullName,
-            phone: body.contactNumber,
+            phone: formatPhoneForPayMongo(body.contactNumber),
             ...(body.email ? { email: body.email } : {})
           },
           send_email_receipt: true,
@@ -167,7 +180,7 @@ export async function POST(request: Request) {
     const checkoutUrl = paymongoData.data.attributes.checkout_url;
     const checkoutId = paymongoData.data.id;
 
-    // 3. Save the pending booking
+    // 3. Save the pending booking (keeping the original full contactNumber for Supabase)
     const { error: dbError } = await supabaseAdmin
       .from('bookings')
       .insert([
