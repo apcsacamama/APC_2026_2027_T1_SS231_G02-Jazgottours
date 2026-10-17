@@ -110,16 +110,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const derivedFirst = formatFirstName(nameMeta || email);
         setUserName(derivedFirst);
 
-        // Determine Role: 
-        // 1. user_metadata.role
-        // 2. localStorage ('jazgot_user_role')
-        // 3. Email conventions
+        // Role resolution: metadata > localStorage > default admin
         let role = (session?.user?.user_metadata?.role as Role) || localRole || undefined;
 
         if (!role) {
-          if (email.toLowerCase().includes('agent')) role = 'agent';
-          else if (email.toLowerCase().includes('staff')) role = 'staff';
-          else role = 'admin';
+          // All portal accounts share @jazgottours.com;
+          // role is always stored in metadata or localStorage.
+          role = 'admin';
         }
 
         // Agents do NOT have access to admin dashboard - redirect immediately to their own dashboard

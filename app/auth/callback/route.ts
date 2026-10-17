@@ -45,11 +45,11 @@ export async function GET(request: Request) {
           .maybeSingle()
 
         let effectiveRole = dbUser?.role || selectedRole
-        if (userEmail === 'admin@jazgottours.com') {
-          effectiveRole = 'admin'
-        } else if (userEmail.includes('@agent.jgt.com') || userEmail.includes('agent')) {
+        if (userEmail === 'admin@jazgottours.com' || (userEmail.endsWith('@jazgottours.com') && !userEmail.endsWith('@staff.jazgottours.com') && !userEmail.endsWith('@agent.jazgottours.com'))) {
+          effectiveRole = dbUser?.role || 'admin'
+        } else if (userEmail.endsWith('@agent.jazgottours.com')) {
           effectiveRole = 'agent'
-        } else if (userEmail.includes('@staff.jgt.com') || userEmail.includes('staff')) {
+        } else if (userEmail.endsWith('@staff.jazgottours.com')) {
           effectiveRole = 'staff'
         }
 

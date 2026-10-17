@@ -20,38 +20,56 @@ export function SignInForm() {
     setIsSubmitting(true)
 
     const formData = new FormData(event.currentTarget)
-    const email = String(formData.get("email")).trim().toLowerCase()
+    const email    = String(formData.get("email")).trim().toLowerCase()
     const password = String(formData.get("password"))
-    const firstName = String(formData.get("first_name") ?? "").trim()
-    const lastName  = String(formData.get("last_name") ?? "").trim()
-    const phone     = String(formData.get("phone") ?? "").trim()
-    const fullName  = [firstName, lastName].filter(Boolean).join(" ")
 
-    // ── Sign Up flow (client only) ──────────────────────────────────────────
+    // ── Sign Up flow (clients only) ────────────────────────────────────────
     if (authMode === "signup") {
+      // Block portal domains from self-registering
+      const portalDomains = ['@jazgottours.com', '@staff.jazgottours.com', '@agent.jazgottours.com']
+      if (portalDomains.some(d => email.endsWith(d))) {
+        setIsSubmitting(false)
+        toast.error(
+          "Portal accounts cannot be self-registered. " +
+          "Please contact your administrator to have your account provisioned."
+        )
+        return
+      }
+
+      const firstName = String(formData.get("first_name") ?? "").trim()
+      const lastName  = String(formData.get("last_name")  ?? "").trim()
+      const phone     = String(formData.get("phone")      ?? "").trim()
+      const fullName  = [firstName, lastName].filter(Boolean).join(" ")
+
       const result = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName, first_name: firstName, last_name: lastName, phone } },
+        options: {
+          data: { full_name: fullName, first_name: firstName, last_name: lastName, phone },
+        },
       })
+
       setIsSubmitting(false)
+
       if (result.error) {
         toast.error(result.error.message)
         return
       }
+
       if (!result.data.session) {
         toast.success("Account created. Check your email to confirm your address, then sign in.")
         setAuthMode("signin")
         return
       }
+
       toast.success("Account created successfully!")
       router.push("/")
       return
     }
 
     // ── Sign In flow — handles ALL roles ───────────────────────────────────
-    let resolvedRole: 'admin' | 'staff' | 'agent' | 'client' = 'client'
-    let resolvedName = ''
+    let resolvedRole: "admin" | "staff" | "agent" | "client" = "client"
+    let resolvedName = ""
     let authenticated = false
 
     // 1. Try Supabase Auth first
@@ -61,7 +79,9 @@ export function SignInForm() {
       authenticated = true
       const authUser = data.session.user
       const metaRole = authUser.user_metadata?.role as string | undefined
-      resolvedRole = (['admin', 'staff', 'agent'].includes(metaRole ?? '') ? metaRole : 'client') as typeof resolvedRole
+      resolvedRole = (["admin", "staff", "agent"].includes(metaRole ?? "")
+        ? (metaRole as "admin" | "staff" | "agent")
+        : "client")
       resolvedName = formatFirstName(
         authUser.user_metadata?.given_name ||
         authUser.user_metadata?.first_name ||
@@ -72,58 +92,60 @@ export function SignInForm() {
     } else {
       // 2. Fall back to public.user table (provisioned portal accounts)
       const { data: userRow } = await supabase
-        .from('user')
-        .select('*')
-        .eq('email', email)
-        .eq('password', password)
+        .from("user")
+        .select("*")
+        .eq("email", email)
+        .eq("password", password)
         .maybeSingle()
 
       if (userRow) {
         authenticated = true
-        resolvedRole = (['admin', 'staff', 'agent'].includes(userRow.role) ? userRow.role : 'client') as typeof resolvedRole
+        resolvedRole = (["admin", "staff", "agent"].includes(userRow.role)
+          ? (userRow.role as "admin" | "staff" | "agent")
+          : "client")
         resolvedName = formatFirstName(userRow.full_name || userRow.username || email)
       }
     }
 
     if (!authenticated) {
       setIsSubmitting(false)
-      toast.error(signInError?.message ?? 'Invalid email or password. Please try again.')
+      toast.error(signInError?.message ?? "Invalid email or password. Please try again.")
       return
     }
 
-    // Override role based on specific portal email domains only
-    if (resolvedRole === 'client') {
-      if (email.endsWith('@agent.jgt.com')) resolvedRole = 'agent'
-      else if (email.endsWith('@staff.jgt.com')) resolvedRole = 'staff'
-      else if (email === 'admin@jazgottours.com') resolvedRole = 'admin'
+    // Detect portal role from email subdomain if not already resolved from metadata/DB
+    if (resolvedRole === "client") {
+      if (email.endsWith("@agent.jazgottours.com"))  resolvedRole = "agent"
+      else if (email.endsWith("@staff.jazgottours.com")) resolvedRole = "staff"
+      else if (email.endsWith("@jazgottours.com"))       resolvedRole = "admin"
     }
 
     // Persist portal session data for admin/staff/agent layouts
-    if (resolvedRole !== 'client') {
-      localStorage.setItem('jazgot_user_role', resolvedRole)
-      localStorage.setItem('jazgot_user_first_name', resolvedName)
-      localStorage.setItem('jazgot_user_email', email)
+    if (resolvedRole !== "client") {
+      localStorage.setItem("jazgot_user_role",       resolvedRole)
+      localStorage.setItem("jazgot_user_first_name", resolvedName)
+      localStorage.setItem("jazgot_user_email",      email)
 
-      if (resolvedRole === 'agent') {
+      if (resolvedRole === "agent") {
         const dynamicAgent = {
-          id: `ag-${resolvedName.toLowerCase()}`,
-          name: resolvedName,
+          id:            `ag-${resolvedName.toLowerCase()}`,
+          name:          resolvedName,
           email,
-          code: `JAZ-AGT-${resolvedName.slice(0, 3).toUpperCase()}`,
+          code:          `JAZ-AGT-${resolvedName.slice(0, 3).toUpperCase()}`,
           defaultMarkup: 500,
         }
-        localStorage.setItem('jazgot_active_agent', JSON.stringify(dynamicAgent))
+        localStorage.setItem("jazgot_active_agent", JSON.stringify(dynamicAgent))
         setIsSubmitting(false)
-        window.location.href = '/agent'
+        window.location.href = "/agent"
         return
       }
 
       setIsSubmitting(false)
-      window.location.href = '/admin'
+      window.location.href = "/admin"
       return
     }
 
-    // Client — just stay on the site
+    // Client — stay on the site
     setIsSubmitting(false)
     toast.success("Signed in successfully!")
     router.push("/")
@@ -131,7 +153,7 @@ export function SignInForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* Dynamic Header */}
+      {/* Header */}
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-foreground">
           {authMode === "signin" ? "Welcome back" : "Create an Account"}
@@ -148,9 +170,17 @@ export function SignInForm() {
         className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm"
       >
         <FieldGroup>
+          {/* Sign-in only: Name field */}
+          {authMode === "signin" && (
+            <Field>
+              <FieldLabel htmlFor="signin_name">Name</FieldLabel>
+              <Input id="signin_name" name="signin_name" type="text" placeholder="Your name" />
+            </Field>
+          )}
+
+          {/* Sign-up only: First Name + Last Name side by side + Phone */}
           {authMode === "signup" && (
             <>
-              {/* Name row — side by side */}
               <div className="grid grid-cols-2 gap-3">
                 <Field>
                   <FieldLabel htmlFor="first_name">First Name</FieldLabel>
@@ -166,14 +196,6 @@ export function SignInForm() {
                 <Input id="phone" name="phone" type="tel" placeholder="+63 912 345 6789" required />
               </Field>
             </>
-          )}
-
-
-          {authMode === "signin" && (
-            <Field>
-              <FieldLabel htmlFor="signin_name">Name</FieldLabel>
-              <Input id="signin_name" name="signin_name" type="text" placeholder="Your name" />
-            </Field>
           )}
 
           <Field>
