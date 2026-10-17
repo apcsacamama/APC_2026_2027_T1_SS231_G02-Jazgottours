@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "prebuild": "node -e \"const fs=require('fs');try{fs.rmSync('.next/dev/types',{recursive:true,force:true})}catch(e){}\"",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
