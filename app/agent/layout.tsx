@@ -6,9 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { 
   FiHome, 
   FiPackage, 
-  FiPlusCircle, 
   FiCalendar, 
-  FiFileText, 
   FiLogOut 
 } from 'react-icons/fi';
 import { Logo } from '@/components/logo';
@@ -126,20 +124,6 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
             </Link>
 
             <Link 
-              href="/agent/book" 
-              className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all border shadow-[0_2px_12px_rgb(150,100,30,0.04)] group ${
-                pathname === '/agent/book'
-                  ? 'bg-white text-slate-950 border-[#c29d6d] font-bold shadow-sm'
-                  : 'text-slate-700 hover:text-slate-950 bg-white/50 hover:bg-white/80 border-white/60 hover:border-[#c29d6d]/60'
-              }`}
-            >
-              <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white group-hover:scale-105 transition-all shadow-xs">
-                <FiPlusCircle size={15} />
-              </div> 
-              <span className="tracking-wide font-semibold text-emerald-900">Book for Client</span>
-            </Link>
-
-            <Link 
               href="/agent/products" 
               className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all border shadow-[0_2px_12px_rgb(150,100,30,0.04)] group ${
                 pathname.startsWith('/agent/products')
@@ -168,20 +152,6 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
                 <FiCalendar size={15} />
               </div> 
               <span className="tracking-wide">My Client Bookings</span>
-            </Link>
-
-            <Link 
-              href="/agent/quotation" 
-              className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all border shadow-[0_2px_12px_rgb(150,100,30,0.04)] group ${
-                pathname === '/agent/quotation'
-                  ? 'bg-white text-slate-950 border-[#c29d6d] font-bold shadow-sm'
-                  : 'text-slate-700 hover:text-slate-950 bg-white/50 hover:bg-white/80 border-white/60 hover:border-[#c29d6d]/60'
-              }`}
-            >
-              <div className="p-2 rounded-xl bg-gradient-to-br from-[#dfa241] to-[#bf7b20] text-white group-hover:scale-105 transition-all shadow-xs">
-                <FiFileText size={15} />
-              </div> 
-              <span className="tracking-wide">Quotation Generator</span>
             </Link>
           </nav>
         </div>
@@ -224,13 +194,6 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-3">
-            <Link 
-              href="/agent/book"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition shadow-xs flex items-center gap-1.5"
-            >
-              <FiPlusCircle size={14} />
-              <span>Book for Client</span>
-            </Link>
 
             <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-slate-800 capitalize">{activeAgent.name}</p>

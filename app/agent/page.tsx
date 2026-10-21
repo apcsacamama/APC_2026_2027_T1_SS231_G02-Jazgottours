@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { 
-  FiPlusCircle, 
-  FiDollarSign, 
   FiCalendar, 
   FiClock, 
   FiCheckCircle, 
@@ -67,17 +65,9 @@ export default function AgentDashboardPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mt-1 capitalize">Welcome Back, {agent.name}!</h1>
           <p className="text-xs text-gray-600 mt-0.5">
-            Book clients under your name, manage mark-up profits, and track Admin confirmations in real time.
+            Manage your mark-up profits and track Admin confirmations in real time.
           </p>
         </div>
-
-        <Link
-          href="/agent/book"
-          className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto"
-        >
-          <FiPlusCircle size={15} />
-          <span>Book for Client</span>
-        </Link>
       </div>
 
       {/* Action Banner: Mark-up & Confidentiality Notice */}
@@ -183,14 +173,9 @@ export default function AgentDashboardPage() {
                 </tr>
               ) : bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-gray-400 space-y-2">
+                  <td colSpan={7} className="py-10 text-center text-gray-400">
                     <p>No client bookings recorded under your name yet.</p>
-                    <Link
-                      href="/agent/book"
-                      className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
-                    >
-                      Create First Booking
-                    </Link>
+                    <p className="text-[11px] mt-1 text-amber-700">Clients can book directly and enter your referral code.</p>
                   </td>
                 </tr>
               ) : (
