@@ -101,7 +101,7 @@ export function GeminiChatbot() {
                     : "bg-white text-slate-800 border border-slate-200 rounded-tl-none shadow-sm"
                 }`}
               >
-                {msg.text}
+                <p className="whitespace-pre-wrap">{msg.text}</p>
               </div>
             ))}
             {isLoading && (

@@ -60,6 +60,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const accessToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+    if (!accessToken || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: 'Please sign in before booking' }, { status: 401 });
+    }
+
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Please sign in before booking' }, { status: 401 });
+    }
+
     const body = await request.json();
     const parsedTourDate = typeof body.tourDate === 'string'
       ? new Date(`${body.tourDate}T00:00:00Z`)
@@ -185,7 +195,7 @@ export async function POST(request: Request) {
       .from('bookings')
       .insert([
         {
-          user_id: null,
+          user_id: user.id,
           tour_package: tourPackage.title,
           lead_guest_name: fullName,
           pax: body.pax,

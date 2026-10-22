@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { SiteShell } from "@/components/site-shell"
+import { supabase } from "@/lib/supabase"
 
 type BookingDetails = {
   userId: string | null
@@ -50,9 +51,15 @@ export default function CheckoutPage() {
     toast.loading("Connecting to Paymongo Secure Checkout...")
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error("Please sign in before completing your booking.")
+
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           ...booking,
           processingFee,
