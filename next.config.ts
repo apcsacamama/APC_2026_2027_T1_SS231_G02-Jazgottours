@@ -1,9 +1,6 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,7 +16,7 @@ const nextConfig: NextConfig = {
     }
   },
   images: {
-    unoptimized: true, // <--- THIS FIXES THE CODESPACES IMAGE BUG
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
