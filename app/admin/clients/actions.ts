@@ -108,6 +108,22 @@ export async function createUserAccount(prevState: any, formData: FormData) {
       // Non-blocking
     }
 
+    // 4. If the account is an agent, generate and persist their referral code
+    if (role === 'agent') {
+      try {
+        // Derive referral code from the first 3 letters of the username
+        const firstPart = username.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase() || 'AGT';
+        const referralCode = `JAZ-AGT-${firstPart}`;
+
+        await supabaseAdmin
+          .from('user')
+          .update({ referral_code: referralCode })
+          .eq('email', email);
+      } catch (refErr) {
+        console.warn('Could not save referral code (column may not exist yet):', refErr);
+      }
+    }
+
     return { success: true, error: null };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed to create user account.' };

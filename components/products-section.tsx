@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/product-card"
 import { useAuth } from "@/components/auth-provider"
 import { getPackages } from "@/lib/actions/packages"
 import { supabase } from "@/lib/supabase"
+import { lookupAgentByCode } from "@/lib/agent-service"
 
 type TourPackage = {
   id: number | string
@@ -69,6 +70,10 @@ export function ProductsSection() {
   const [pax, setPax] = useState<number | "">(1)
   const [tourDate, setTourDate] = useState("")
   const [contactNumber, setContactNumber] = useState("")
+  const [agentReferralCode, setAgentReferralCode] = useState("")
+  const [referralValidation, setReferralValidation] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
+  const [validatedAgent, setValidatedAgent] = useState<{ id: string; name: string; email: string; code: string; defaultMarkup: number } | null>(null)
+  const referralDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // --- Fetch Packages on Load ---
   useEffect(() => {
@@ -158,6 +163,29 @@ export function ProductsSection() {
 
     const customerEmail = user?.email || email || ""
 
+    // Use the already-validated agent (from async lookup)
+    let agentInfo: {
+      agent_id: string;
+      agent_name: string;
+      agent_email: string;
+      agent_referral_code: string;
+      agent_markup_per_pax: number;
+    } | null = null;
+
+    if (agentReferralCode.trim()) {
+      if (referralValidation !== 'valid' || !validatedAgent) {
+        toast.error("Invalid agent referral code. Please check the code and try again.")
+        return
+      }
+      agentInfo = {
+        agent_id: validatedAgent.id,
+        agent_name: validatedAgent.name,
+        agent_email: validatedAgent.email,
+        agent_referral_code: validatedAgent.code,
+        agent_markup_per_pax: validatedAgent.defaultMarkup,
+      }
+    }
+
     sessionStorage.setItem(bookingStorageKey, JSON.stringify({
       userId: user?.id ?? null,
       email: customerEmail,
@@ -172,6 +200,7 @@ export function ProductsSection() {
       packageSubtotal,
       environmentFee,
       totalAmount,
+      ...(agentInfo ? agentInfo : {}),
     }))
     router.push("/checkout")
   }
@@ -398,6 +427,75 @@ export function ProductsSection() {
                       className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#ce9136] text-slate-900 outline-none" 
                       placeholder="09171234567 or +639171234567"
                     />
+                  </div>
+
+                  {/* Agent Referral Code */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Agent Referral Code
+                      <span className="ml-1 text-slate-400 font-normal text-xs">(Optional)</span>
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        value={agentReferralCode}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase()
+                          setAgentReferralCode(val)
+                          setValidatedAgent(null)
+
+                          if (!val.trim()) {
+                            setReferralValidation('idle')
+                            if (referralDebounceRef.current) clearTimeout(referralDebounceRef.current)
+                            return
+                          }
+
+                          // Debounce the API lookup by 500ms
+                          setReferralValidation('checking')
+                          if (referralDebounceRef.current) clearTimeout(referralDebounceRef.current)
+                          referralDebounceRef.current = setTimeout(async () => {
+                            try {
+                              const res = await fetch(`/api/agent-lookup?code=${encodeURIComponent(val.trim())}`)
+                              const json = await res.json()
+                              if (json.found && json.agent) {
+                                setValidatedAgent(json.agent)
+                                setReferralValidation('valid')
+                              } else {
+                                setReferralValidation('invalid')
+                              }
+                            } catch {
+                              setReferralValidation('invalid')
+                            }
+                          }, 500)
+                        }}
+                        className={`w-full p-2.5 border rounded-lg focus:ring-2 text-slate-900 outline-none font-mono tracking-wider text-sm pr-10 ${
+                          referralValidation === 'valid'
+                            ? 'border-emerald-400 focus:ring-emerald-400/30 bg-emerald-50'
+                            : referralValidation === 'invalid'
+                            ? 'border-rose-400 focus:ring-rose-400/30 bg-rose-50'
+                            : 'border-slate-300 focus:ring-[#ce9136]'
+                        }`}
+                        placeholder="e.g. JAZ-AGT-JEA"
+                        maxLength={20}
+                      />
+                      {referralValidation === 'checking' && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs animate-pulse">...</span>
+                      )}
+                      {referralValidation === 'valid' && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-xs">✓</span>
+                      )}
+                      {referralValidation === 'invalid' && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-500 font-bold text-xs">✗</span>
+                      )}
+                    </div>
+                    {referralValidation === 'valid' && validatedAgent && (
+                      <p className="text-[11px] text-emerald-700 mt-1 font-semibold">
+                        ✓ Referral linked to agent: <span className="font-bold">{validatedAgent.name}</span>
+                      </p>
+                    )}
+                    {referralValidation === 'invalid' && (
+                      <p className="text-[11px] text-rose-600 mt-1">Referral code not recognized. Please check with your agent.</p>
+                    )}
                   </div>
                 </form>
               </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { 
   FiCalendar, 
   FiSearch, 
@@ -11,7 +10,6 @@ import {
   FiEye, 
   FiUser, 
   FiMapPin, 
-  FiPlusCircle,
   FiTrendingUp,
   FiShield
 } from 'react-icons/fi';
@@ -19,7 +17,8 @@ import { supabase } from '@/lib/supabase';
 import { 
   getActiveAgent, 
   syncActiveAgentFromUser,
-  getStoredAgentBookings, 
+  getStoredAgentBookings,
+  fetchAgentBookingsFromSupabase,
   AgentBooking, 
   AgentProfile 
 } from '@/lib/agent-service';
@@ -39,13 +38,22 @@ export default function AgentBookingsPage() {
         curAgent = syncActiveAgentFromUser(session.user);
       }
       setAgent(curAgent);
-      const all = getStoredAgentBookings();
-      const myBookings = all.filter((b) => 
+
+      // Merge localStorage bookings + Supabase client-referred bookings
+      const localAll = getStoredAgentBookings();
+      const myLocal = localAll.filter((b) => 
         b.agent_email?.toLowerCase() === curAgent.email?.toLowerCase() || 
         b.agent_id === curAgent.id || 
         b.agent_name?.toLowerCase() === curAgent.name?.toLowerCase()
       );
-      setBookings(myBookings);
+      const supabaseBookings = await fetchAgentBookingsFromSupabase(curAgent);
+
+      // Deduplicate by id (Supabase wins)
+      const merged = [...supabaseBookings];
+      const supabaseIds = new Set(supabaseBookings.map((b) => b.id));
+      myLocal.forEach((b) => { if (!supabaseIds.has(b.id)) merged.push(b); });
+
+      setBookings(merged);
     };
 
     init();
@@ -80,13 +88,6 @@ export default function AgentBookingsPage() {
           </p>
         </div>
 
-        <Link
-          href="/agent/book"
-          className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer"
-        >
-          <FiPlusCircle size={15} />
-          <span>New Client Booking</span>
-        </Link>
       </div>
 
       {/* Filter & Search Bar */}

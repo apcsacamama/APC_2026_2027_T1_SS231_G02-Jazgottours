@@ -59,6 +59,31 @@ export const REGISTERED_AGENTS: AgentProfile[] = [
   }
 ];
 
+/**
+ * Look up an agent by referral code via the secure /api/agent-lookup server route.
+ * This checks the Supabase user table so ALL admin-created agents are found.
+ * Returns null if the code is not recognized.
+ */
+export async function lookupAgentByCode(code: string): Promise<AgentProfile | null> {
+  if (!code?.trim()) return null;
+
+  try {
+    const res = await fetch(`/api/agent-lookup?code=${encodeURIComponent(code.trim().toUpperCase())}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json.found || !json.agent) return null;
+    return {
+      id: json.agent.id,
+      name: json.agent.name,
+      email: json.agent.email,
+      code: json.agent.code,
+      defaultMarkup: json.agent.defaultMarkup ?? 500,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const INITIAL_AGENT_BOOKINGS: AgentBooking[] = [
   {
     id: 'AB-2026-001',
@@ -154,12 +179,13 @@ export function syncActiveAgentFromUser(user: any): AgentProfile {
                   user.email;
   const firstName = formatFirstName(rawName);
   const email = user.email || `${firstName.toLowerCase()}@jazgottours.com`;
+  const generatedCode = `JAZ-AGT-${firstName.slice(0, 3).toUpperCase()}`;
 
   const profile: AgentProfile = {
     id: user.id || `ag-${firstName.toLowerCase()}`,
     name: firstName,
     email: email,
-    code: `JAZ-AGT-${firstName.slice(0, 3).toUpperCase()}`,
+    code: generatedCode,
     defaultMarkup: 500
   };
 
@@ -168,6 +194,17 @@ export function syncActiveAgentFromUser(user: any): AgentProfile {
     localStorage.setItem('jazgot_user_email', email);
     localStorage.setItem(STORAGE_KEY_ACTIVE_AGENT, JSON.stringify(profile));
   }
+
+  // Persist the referral code back to Supabase so client-side lookup finds this agent
+  // (non-blocking — runs in background)
+  supabase
+    .from('user')
+    .update({ referral_code: generatedCode })
+    .eq('email', email)
+    .then(({ error }) => {
+      if (error) console.warn('Could not sync referral code to DB:', error.message);
+    });
+
   return profile;
 }
 
@@ -355,4 +392,53 @@ export function updateAgentBookingStatus(bookingId: string, newStatus: 'Pending'
   const list = getStoredAgentBookings();
   const updated = list.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b));
   saveStoredAgentBookings(updated);
+}
+
+/**
+ * Fetch agent bookings from Supabase `agent_bookings` table.
+ * This picks up bookings where a client used this agent's referral code.
+ * Returns an empty array if the table doesn't exist yet (graceful degradation).
+ */
+export async function fetchAgentBookingsFromSupabase(agent: AgentProfile): Promise<AgentBooking[]> {
+  try {
+    const { data, error } = await supabase
+      .from('agent_bookings')
+      .select('*')
+      .or(
+        `agent_id.eq.${agent.id},agent_email.eq.${agent.email},agent_referral_code.eq.${agent.code}`
+      )
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // Table might not exist yet — silently return empty
+      console.warn('agent_bookings fetch warning:', error.message);
+      return [];
+    }
+
+    // Map Supabase rows → AgentBooking shape
+    return (data || []).map((row: any): AgentBooking => ({
+      id: row.id,
+      client_name: row.client_name || '',
+      client_email: row.client_email || '',
+      client_phone: row.client_phone || '',
+      tour_package: row.tour_package || '',
+      package_id: row.package_id,
+      pax: Number(row.pax) || 1,
+      tour_date: row.tour_date || '',
+      is_agent_booking: true,
+      agent_id: row.agent_id || '',
+      agent_name: row.agent_name || '',
+      agent_email: row.agent_email || '',
+      base_price_per_pax: 0, // hidden from agent
+      markup_per_pax: Number(row.markup_per_pax) || 0,
+      total_price_per_pax: 0,
+      total_amount: Number(row.total_amount) || 0,
+      agent_earnings: Number(row.agent_earnings) || 0,
+      admin_commission: Number(row.admin_commission) || 0,
+      status: (row.status as AgentBooking['status']) || 'Pending',
+      created_at: row.created_at || new Date().toISOString(),
+    }));
+  } catch {
+    return [];
+  }
 }

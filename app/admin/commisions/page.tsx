@@ -1,17 +1,15 @@
 "use client"
  
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
-import { FiDollarSign, FiTrendingUp, FiUsers, FiCheckCircle, FiClock, FiEdit2, FiSave, FiX, FiBell } from 'react-icons/fi';
+import { FiDollarSign, FiTrendingUp, FiUsers, FiCheckCircle, FiClock, FiEdit2, FiSave, FiX, FiBell, FiShoppingBag } from 'react-icons/fi';
 
 import {
-
   getStoredAgentBookings,
-
+  fetchAgentBookingsFromSupabase,
   updateAgentBookingStatus,
-
   type AgentBooking,
-
 } from '@/lib/agent-service';
  
 const DEFAULT_COMMISSION_RATE = 5; // %
@@ -39,28 +37,77 @@ function saveCommissionRate(rate: number) {
 export default function CommissionsPage() {
 
   const [bookings, setBookings] = useState<AgentBooking[]>([]);
-
+  const [directBookings, setDirectBookings] = useState<any[]>([]);
   const [commissionRate, setCommissionRate] = useState(DEFAULT_COMMISSION_RATE);
-
   const [editingRate, setEditingRate] = useState(false);
-
   const [draftRate, setDraftRate] = useState(DEFAULT_COMMISSION_RATE);
-
   const [notifications, setNotifications] = useState<string[]>([]);
  
   useEffect(() => {
-
     const rate = getCommissionRate();
-
     setCommissionRate(rate);
-
     setDraftRate(rate);
-
-    const stored = getStoredAgentBookings();
-
-    setBookings(stored);
-
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    // 1. Agent bookings: merge localStorage + Supabase agent_bookings
+    const local = getStoredAgentBookings();
+    const dbAgent = await fetchAgentBookingsFromSupabase({ id: '', name: '', email: '', code: '', defaultMarkup: 500 } as any)
+      .catch(() => [] as AgentBooking[]);
+
+    // Fetch ALL agent_bookings from Supabase (not filtered by agent)
+    const { data: allAgentRows } = await supabase
+      .from('agent_bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    const supabaseMapped: AgentBooking[] = (allAgentRows || []).map((row: any) => ({
+      id: row.id,
+      client_name: row.client_name || '',
+      client_email: row.client_email || '',
+      client_phone: row.client_phone || '',
+      tour_package: row.tour_package || '',
+      pax: Number(row.pax) || 1,
+      tour_date: row.tour_date || '',
+      is_agent_booking: true,
+      agent_id: row.agent_id || '',
+      agent_name: row.agent_name || '',
+      agent_email: row.agent_email || '',
+      base_price_per_pax: 0,
+      markup_per_pax: Number(row.markup_per_pax) || 0,
+      total_price_per_pax: 0,
+      total_amount: Number(row.total_amount) || 0,
+      agent_earnings: Number(row.agent_earnings) || 0,
+      admin_commission: Number(row.admin_commission) || 0,
+      status: row.status as AgentBooking['status'] || 'Pending',
+      created_at: row.created_at || new Date().toISOString(),
+    }));
+
+    // Deduplicate: Supabase wins on matching id
+    const merged = [...supabaseMapped];
+    const dbIds = new Set(supabaseMapped.map(b => b.id));
+    local.forEach(b => { if (!dbIds.has(b.id)) merged.push(b); });
+    setBookings(merged);
+
+    // Auto-notify for any pending agent-referred bookings
+    const pending = merged.filter(b => b.status === 'Pending');
+    if (pending.length > 0) {
+      const msgs = pending.map(b =>
+        `New referral booking pending! Client: ${b.client_name} | Agent: ${b.agent_name} (${b.tour_package}) | Agent Markup: ₱${b.agent_earnings.toLocaleString()}`
+      );
+      setNotifications(msgs);
+    }
+
+    // 2. Direct bookings (no agent referral code) — compute 5% admin commission
+    const { data: directRows } = await supabase
+      .from('bookings')
+      .select('id, lead_guest_name, tour_package, pax, tour_date, total_amount, payment_status, status, created_at')
+      .is('agent_referral_code', null)
+      .eq('payment_status', 'paid')
+      .order('created_at', { ascending: false });
+    setDirectBookings(directRows || []);
+  };
  
   const confirmedBookings = bookings.filter(b => b.status === 'Confirmed');
 
@@ -84,26 +131,21 @@ export default function CommissionsPage() {
 
   };
  
-  const handleConfirm = (booking: AgentBooking) => {
-
+  const handleConfirm = async (booking: AgentBooking) => {
+    // Update localStorage
     updateAgentBookingStatus(booking.id, 'Confirmed');
-
-    setBookings(getStoredAgentBookings());
-
+    // Update Supabase agent_bookings
+    await supabase.from('agent_bookings').update({ status: 'Confirmed' }).eq('id', booking.id);
+    loadAllData();
     const commission = Math.round(booking.total_amount * (commissionRate / 100));
-
-    const msg = `Booking ${booking.id} confirmed! Client: ${booking.client_name} | Agent: ${booking.agent_name} | Tour: ${booking.tour_package} | Admin Commission: ₱${commission.toLocaleString()}`;
-
+    const msg = `✅ Booking ${booking.id} confirmed! Client: ${booking.client_name} | Agent: ${booking.agent_name} | Tour: ${booking.tour_package} | Admin Commission: ₱${commission.toLocaleString()} | Agent Markup: ₱${booking.agent_earnings.toLocaleString()}`;
     setNotifications(prev => [msg, ...prev]);
-
   };
  
-  const handleCancel = (booking: AgentBooking) => {
-
+  const handleCancel = async (booking: AgentBooking) => {
     updateAgentBookingStatus(booking.id, 'Cancelled');
-
-    setBookings(getStoredAgentBookings());
-
+    await supabase.from('agent_bookings').update({ status: 'Cancelled' }).eq('id', booking.id);
+    loadAllData();
   };
  
   const dismissNotification = (i: number) => {
@@ -373,6 +415,71 @@ export default function CommissionsPage() {
         )}
 </div>
  
+      {/* Direct Booking Commissions */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+<div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+<div className="flex items-center gap-2">
+<FiShoppingBag size={16} className="text-slate-500" />
+<h2 className="font-bold text-slate-800 text-base">Direct Booking Commissions</h2>
+</div>
+<span className="text-xs text-slate-400">{directBookings.length} paid direct bookings</span>
+</div>
+        <div className="overflow-x-auto">
+<table className="w-full text-sm">
+<thead>
+<tr className="bg-slate-50 text-left">
+            {['Booking ID','Client','Tour Package','Pax','Tour Date','Total Amount','Admin Commission ('+commissionRate+'%)'].map(h => (
+<th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
+            ))}
+</tr>
+</thead>
+<tbody className="divide-y divide-slate-100">
+            {directBookings.length === 0 ? (
+<tr>
+<td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
+                  No direct paid bookings yet.
+</td>
+</tr>
+            ) : directBookings.map((b: any) => {
+              const commission = Math.round(Number(b.total_amount) * (commissionRate / 100));
+              return (
+<tr key={b.id} className="hover:bg-slate-50 transition-colors">
+<td className="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap">{b.id}</td>
+<td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{b.lead_guest_name}</td>
+<td className="px-4 py-3 text-slate-700 max-w-[180px] truncate">{b.tour_package}</td>
+<td className="px-4 py-3 text-center font-bold text-slate-700">{b.pax}</td>
+<td className="px-4 py-3 text-slate-500 whitespace-nowrap">{b.tour_date}</td>
+<td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">₱{Number(b.total_amount).toLocaleString()}</td>
+<td className="px-4 py-3 whitespace-nowrap">
+<span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 font-bold text-xs">
+                      ₱{commission.toLocaleString()}
+<span className="text-amber-500 font-normal">({commissionRate}%)</span>
+</span>
+</td>
+</tr>
+              );
+            })}
+</tbody>
+</table>
+</div>
+        {directBookings.length > 0 && (() => {
+          const totalDirect = directBookings.reduce((s: number, b: any) => s + Math.round(Number(b.total_amount) * (commissionRate / 100)), 0);
+          const totalDirectRevenue = directBookings.reduce((s: number, b: any) => s + Number(b.total_amount), 0);
+          return (
+<div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex flex-wrap gap-6 justify-end text-sm">
+<div className="text-right">
+<p className="text-xs text-slate-500 font-medium">Direct Booking Revenue</p>
+<p className="text-lg font-extrabold text-slate-800">₱{totalDirectRevenue.toLocaleString()}</p>
+</div>
+<div className="text-right">
+<p className="text-xs text-slate-500 font-medium">Your Commission ({commissionRate}%)</p>
+<p className="text-lg font-extrabold text-amber-700">₱{totalDirect.toLocaleString()}</p>
+</div>
+</div>
+          );
+        })()}
+</div>
+
       {/* Legend */}
 <div className="bg-white rounded-2xl border border-slate-200 px-6 py-4 text-xs text-slate-500 space-y-1 shadow-sm">
 <p className="font-bold text-slate-700 text-sm mb-2">How Commissions Are Calculated</p>

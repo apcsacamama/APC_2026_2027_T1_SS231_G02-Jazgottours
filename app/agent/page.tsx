@@ -16,6 +16,7 @@ import {
   getActiveAgent, 
   syncActiveAgentFromUser,
   getStoredAgentBookings, 
+  fetchAgentBookingsFromSupabase,
   AgentBooking, 
   AgentProfile 
 } from '@/lib/agent-service';
@@ -34,13 +35,21 @@ export default function AgentDashboardPage() {
       }
       setAgent(curAgent);
 
-      const allBookings = getStoredAgentBookings();
-      const myBookings = allBookings.filter((b) => 
+      // Merge localStorage bookings + Supabase agent_bookings (client-referred)
+      const localBookings = getStoredAgentBookings();
+      const myLocal = localBookings.filter((b) => 
         b.agent_email?.toLowerCase() === curAgent.email?.toLowerCase() || 
         b.agent_id === curAgent.id || 
         b.agent_name?.toLowerCase() === curAgent.name?.toLowerCase()
       );
-      setBookings(myBookings);
+      const supabaseBookings = await fetchAgentBookingsFromSupabase(curAgent);
+
+      // Deduplicate by id (Supabase bookings win if same id)
+      const merged = [...supabaseBookings];
+      const supabaseIds = new Set(supabaseBookings.map((b) => b.id));
+      myLocal.forEach((b) => { if (!supabaseIds.has(b.id)) merged.push(b); });
+
+      setBookings(merged);
       setLoading(false);
     };
 
@@ -50,7 +59,6 @@ export default function AgentDashboardPage() {
   const totalBookings = bookings.length;
   const totalMarkupProfit = bookings.reduce((sum, b) => sum + (b.agent_earnings || 0), 0);
   const pendingApprovals = bookings.filter((b) => b.status === 'Pending').length;
-  const adminCommissionGenerated = bookings.reduce((sum, b) => sum + (b.admin_commission || 0), 0);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12 font-sans text-slate-900">
@@ -65,7 +73,7 @@ export default function AgentDashboardPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mt-1 capitalize">Welcome Back, {agent.name}!</h1>
           <p className="text-xs text-gray-600 mt-0.5">
-            Manage your mark-up profits and track Admin confirmations in real time.
+            Manage your mark-up profits and track client bookings made with your referral code in real time.
           </p>
         </div>
       </div>
@@ -88,8 +96,7 @@ export default function AgentDashboardPage() {
         </Link>
       </div>
 
-      {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Bookings */}
         <div className="bg-white p-5 rounded-2xl border border-amber-200/80 shadow-xs flex justify-between items-start">
           <div className="space-y-1">
@@ -123,18 +130,6 @@ export default function AgentDashboardPage() {
           </div>
           <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-200/60">
             <FiClock size={20} />
-          </div>
-        </div>
-
-        {/* Admin 5% Commission Contributed */}
-        <div className="bg-white p-5 rounded-2xl border border-amber-200/80 shadow-xs flex justify-between items-start">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Admin 5% Cut</span>
-            <h2 className="text-2xl font-extrabold text-slate-900">₱{adminCommissionGenerated.toLocaleString()}</h2>
-            <p className="text-[10px] text-slate-400">Generated for Jasmine</p>
-          </div>
-          <div className="p-2.5 bg-slate-50 text-slate-700 rounded-xl border border-slate-200 font-bold text-base flex items-center justify-center w-[42px] h-[42px]">
-            ₱
           </div>
         </div>
       </div>

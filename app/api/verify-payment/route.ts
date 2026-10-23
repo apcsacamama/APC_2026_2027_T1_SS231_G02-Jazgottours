@@ -54,9 +54,50 @@ export async function GET(request: Request) {
     } else {
       console.log("Successfully inserted invoice into database:", invoiceNumber);
     }
+
+    // 3. If booking was made with an agent referral code, create an agent booking record
+    if (booking.agent_referral_code && booking.agent_id) {
+      const markupPerPax = Number(booking.agent_markup_per_pax) || 0;
+      const agentEarnings = markupPerPax * booking.pax;
+      const adminCommission = Math.round(booking.total_amount * 0.05);
+      const agentBookingId = `AB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+      const { error: agentBookingError } = await supabaseAdmin
+        .from('agent_bookings')
+        .insert([
+          {
+            id: agentBookingId,
+            client_name: booking.lead_guest_name,
+            client_email: booking.email || '',
+            client_phone: booking.contact_number || '',
+            tour_package: booking.tour_package,
+            pax: booking.pax,
+            tour_date: booking.tour_date,
+            is_agent_booking: true,
+            agent_id: booking.agent_id,
+            agent_name: booking.agent_name,
+            agent_email: booking.agent_email,
+            agent_referral_code: booking.agent_referral_code,
+            markup_per_pax: markupPerPax,
+            total_amount: booking.total_amount,
+            agent_earnings: agentEarnings,
+            admin_commission: adminCommission,
+            status: 'Confirmed',
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+      if (agentBookingError) {
+        // agent_bookings table may not exist yet — log but don't block the redirect
+        console.warn("Agent booking insert warning (table may not exist):", agentBookingError.message);
+      } else {
+        console.log("Agent booking record created:", agentBookingId);
+      }
+    }
+
   } catch (err) {
     console.error("Verify Payment Exception:", err);
   }
 
   return NextResponse.redirect(new URL('/dashboard?success=true', request.url));
-}
+}

@@ -134,16 +134,6 @@ export default function AgentProductsPage() {
             Configure your personalized mark-up for each tour package. Original package costs are confidential.
           </p>
         </div>
-
-        <div className="bg-white border border-amber-200 px-4 py-2 rounded-2xl shadow-xs flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
-            <FiShield size={16} />
-          </div>
-          <div className="text-right sm:text-left">
-            <p className="text-[10px] uppercase font-bold text-slate-400">Net Cost Protection</p>
-            <p className="text-xs font-bold text-slate-800">Admin-Protected Pricing</p>
-          </div>
-        </div>
       </div>
 
       {/* Security & Policy Banner */}
@@ -154,7 +144,7 @@ export default function AgentProductsPage() {
           <p className="text-slate-600 leading-relaxed text-[11px]">
             1. <strong>Original Price is strictly hidden</strong> from all tour agents and can only be set or edited by the Admin (Jasmine).<br />
             2. You have complete autonomy to customize your <strong>mark-up per pax</strong> on every package.<br />
-            3. The Admin receives a <strong>5% commission</strong> from your client bookings, and you keep <strong>100% of your mark-up</strong> as profit.
+            3. The Admin receives a commission from your client bookings, and you keep <strong>100% of your mark-up</strong> as profit.
           </p>
         </div>
       </div>

@@ -181,6 +181,17 @@ export async function POST(request: Request) {
     const checkoutId = paymongoData.data.id;
 
     // 3. Save the pending booking (keeping the original full contactNumber for Supabase)
+    // Include agent referral fields if the client provided a valid agent referral code
+    const agentFields = body.agent_referral_code
+      ? {
+          agent_referral_code: body.agent_referral_code,
+          agent_id: body.agent_id || null,
+          agent_name: body.agent_name || null,
+          agent_email: body.agent_email || null,
+          agent_markup_per_pax: typeof body.agent_markup_per_pax === 'number' ? body.agent_markup_per_pax : null,
+        }
+      : {};
+
     const { error: dbError } = await supabaseAdmin
       .from('bookings')
       .insert([
@@ -194,7 +205,8 @@ export async function POST(request: Request) {
           total_amount: totalAmount,
           paymongo_checkout_id: checkoutId,
           payment_status: 'pending',
-          status: 'Pending'
+          status: 'Pending',
+          ...agentFields
         }
       ]);
 
